@@ -1,18 +1,11 @@
 defmodule Emergencias do
   @moduledoc """
-  Documentation for `Emergencias`.
+  Sistema distribuido de coordinación y gestión de emergencias posteriores a un
+  terremoto.
+
+  Permite registrar y consultar usuarios, zonas afectadas, necesidades, recursos,
+  albergues, personas afectadas, mensajes entre familiares y reportes de mascotas.
+  Los componentes con estado se ejecutan como procesos independientes bajo un
+  árbol de supervisión, y la información se conserva en archivos de texto plano.
   """
-
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> Emergencias.hello()
-      :world
-
-  """
-  def hello do
-    :world
-  end
 end
