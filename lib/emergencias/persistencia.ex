@@ -5,8 +5,8 @@ defmodule Emergencias.Persistencia do
   Cada entidad del sistema (usuarios, zonas, mascotas, personas, etc.) se almacena
   en su propio archivo dentro del directorio de datos, con un registro por línea:
 
-      data/mascotas.jsonl
-      data/personas.jsonl
+      datos/mascotas.jsonl
+      datos/personas.jsonl
 
   ## Convenciones
 
@@ -23,9 +23,9 @@ defmodule Emergencias.Persistencia do
 
   El directorio de datos se define con:
 
-      config :emergencias, data_dir: "ruta/de/datos"
+      config :emergencias, directorio_datos: "ruta/de/datos"
 
-  Si no se configura, se utiliza `"data"`.
+  Si no se configura, se utiliza `"datos"`.
   """
 
   @typedoc "Nombre de la entidad persistida. Determina el nombre del archivo."
@@ -44,7 +44,7 @@ defmodule Emergencias.Persistencia do
   Retorna el directorio donde se almacenan los archivos de datos.
   """
   @spec directorio() :: Path.t()
-  def directorio, do: Application.get_env(:emergencias, :data_dir, "data")
+  def directorio, do: Application.get_env(:emergencias, :directorio_datos, "datos")
 
   @doc """
   Retorna la ruta del archivo asociado a una entidad.
