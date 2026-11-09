@@ -1,4 +1,13 @@
 defmodule Emergencias.Zonas.ServidorZonas do
+  @moduledoc """
+  Servidor concurrente basado en `GenServer` para administrar el catálogo de zonas,
+  sectores, puntos y su persistencia automática.
+
+  ##informacion del proyecto
+  - autor: Simon Lopez E, Luna Sofia Oviedo Rios, David Alejandro Henao Jaramillo
+  - fecha: noviembre del 2026
+  - licencia: GNU GPL v3
+  """
 
   use GenServer
 
@@ -6,21 +15,44 @@ defmodule Emergencias.Zonas.ServidorZonas do
   alias Emergencias.Zonas.Catalogo
 
 
+  @doc """
+  Inicia el proceso del `GenServer` para la gestión de zonas.
+  """
   def start_link(opciones \\ []) do
     GenServer.start_link(__MODULE__, :ok, Keyword.put_new(opciones, :name, __MODULE__))
   end
 
+  @doc """
+  Registra una zona de manera síncrona en el servidor.
+  """
   def registrar_zona(codigo, nombre, nivel, afectados \\ 0),
     do: GenServer.call(__MODULE__, {:registrar_zona, codigo, nombre, nivel, afectados})
 
+  @doc """
+  Registra un sector vinculado a una zona específica a través del servidor.
+  """
   def registrar_sector(codigo_zona, codigo, nombre, afectados \\ 0),
     do: GenServer.call(__MODULE__, {:registrar_sector, codigo_zona, codigo, nombre, afectados})
 
+  @doc """
+  Registra un punto dentro de un sector específico mediante el servidor.
+  """
   def registrar_punto(codigo_sector, codigo, nombre, afectados \\ 0),
     do: GenServer.call(__MODULE__, {:registrar_punto, codigo_sector, codigo, nombre, afectados})
 
+  @doc """
+  Obtiene la información de una zona a partir de su código.
+  """
   def obtener_zona(codigo), do: GenServer.call(__MODULE__, {:obtener_zona, codigo})
+
+  @doc """
+  Obtiene un resumen detallado y estadístico del estado de una zona.
+  """
   def estado_zona(codigo), do: GenServer.call(__MODULE__, {:estado_zona, codigo})
+
+  @doc """
+  Lista todas las zonas registradas en el sistema.
+  """
   def listar_zonas, do: GenServer.call(__MODULE__, :listar_zonas)
 
 

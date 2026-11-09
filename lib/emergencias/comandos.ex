@@ -1,5 +1,11 @@
 defmodule Emergencias.Comandos do
   @moduledoc """
+
+  ##informacion del proyecto
+  - autor: Simon Lopez E, Luna Sofia Oviedo Rios, David Alejandro Henao Jaramillo
+  - fecha: noviembre del 2026
+  - licencia: GNU GPL v3
+
   Interpreta y ejecuta comandos de texto.
 
   `ejecutar/2` recibe la sesión actual (el nombre del usuario conectado, o `nil`)
@@ -30,8 +36,9 @@ defmodule Emergencias.Comandos do
     "list_zones" => "list_zones [nivel=critico]"
   }
 
-  @spec ejecutar(String.t() | nil, String.t()) ::
-          {:ok, String.t(), String.t() | nil} | {:error, String.t()}
+  @doc """
+  Interpreta una línea de comandos de texto y la despacha según la sesión activa y los argumentos provistos.
+  """
   def ejecutar(sesion, linea) when is_binary(linea) do
     case OptionParser.split(linea) do
       [] -> {:error, "Comando vacío."}
