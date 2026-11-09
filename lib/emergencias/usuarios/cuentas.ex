@@ -1,4 +1,15 @@
 defmodule Emergencias.Usuarios.Cuentas do
+  @moduledoc """
+  Gestiona la logica de cuentas de usuario, autentificacion, control de permisos
+  basandose en los roles y su respectiva vlidacion de atributos.
+  
+  ##informacion del proyecto
+  - autor: Simon Lopez E, Luna Sofia Oviedo Rios, David Alejandro Henao Jaramillo
+  - fecha: noviembre del 2026
+  - licencia: GNU GPL v3
+  """
+
+
   alias Emergencias.Usuarios.Usuario
 
   @roles %{
@@ -23,7 +34,11 @@ defmodule Emergencias.Usuarios.Cuentas do
   }
 
 
-   def registrar(usuarios, atributos) do
+@doc """
+Registra un usuario nuevo en el mapa de los usuarios luego de haber validado cada uno de sus atributos.
+Devuelve un `{:ok, usuarios_actualizados, nuevo_usuario}` si es exitoso, o un error si alguna validación falla.
+"""
+  def registrar(usuarios, atributos) do
     with :ok <- validar_usuario(atributos[:usuario]),
          :ok <- validar_clave(atributos[:clave]),
          :ok <- validar_texto(atributos[:nombre_completo], :nombre_completo_invalido),
@@ -42,6 +57,10 @@ defmodule Emergencias.Usuarios.Cuentas do
     end
   end
 
+  @doc """
+  Permite autenticar a un usuario comprobando la existencia de su cuenta y la validez del hash
+  es decir, su clave.
+  """
   def autenticar(usuarios, usuario, clave) when is_binary(clave) do
     case Map.fetch(usuarios, usuario) do
       {:ok, %Usuario{hash_clave: hash} = encontrado} ->
@@ -55,6 +74,10 @@ defmodule Emergencias.Usuarios.Cuentas do
 
   def autenticar(_usuarios, _usuario, _clave), do: {:error, :credenciales_invalidas}
 
+  @doc """
+  Intenta conectar a un usuario que ya existe mediante la autentificacion de su informacion.
+  Si en un caso el usuario no existe, lo registra automaticamente con los datos que se proporcionaron.
+  """
   def conectar(usuarios, usuario, clave, rol, zona) do
     if Map.has_key?(usuarios, usuario) do
       with {:ok, encontrado} <- autenticar(usuarios, usuario, clave) do
@@ -69,6 +92,9 @@ defmodule Emergencias.Usuarios.Cuentas do
     end
   end
 
+  @doc """
+  Verifica si el rol que se determino, cumple con los permisos necesarion para ejecutar una accion.
+  """
   def puede?(rol, accion) do
     case Map.fetch!(@permisos, rol) do
       :todo -> true
@@ -76,6 +102,10 @@ defmodule Emergencias.Usuarios.Cuentas do
     end
   end
 
+  @doc """
+  Registra una nueva accion en el historial de actividad de un usuario
+  incluyendo la marca de tiempo.
+  """
   def registrar_actividad(usuarios, usuario, accion) do
   case Map.fetch(usuarios, usuario) do
     {:ok, encontrado} ->
@@ -89,6 +119,9 @@ defmodule Emergencias.Usuarios.Cuentas do
   end
 end
 
+@doc """
+Convierte una estructura `Usuario` en un mapa plano apto para persistencia.
+"""
   def a_registro(%Usuario{} = u) do
     %{
       "usuario" => u.usuario,
@@ -100,6 +133,9 @@ end
     }
   end
 
+  @doc """
+  Reconstruye una estructura `Usuario` a partir de un mapa de registro persistido.
+  """
   def de_registro(
         %{
           "usuario" => usuario,
@@ -124,6 +160,7 @@ end
 
   def de_registro(_), do: {:error, :registro_invalido}
 
+  #Las siguientes funciones sirven como utilidad y validacion para las funciones principales de arriba.
   defp calcular_hash(clave), do: Base.encode16(:crypto.hash(:sha256, clave), case: :lower)
 
   defp interpretar_rol(rol) when rol in [:ciudadano, :voluntario, :coordinador, :administrador], do: {:ok, rol}

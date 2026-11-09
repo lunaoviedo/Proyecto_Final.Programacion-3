@@ -1,24 +1,54 @@
 defmodule Emergencias.Usuarios.ServidorSesiones do
+  @moduledoc """
+  Servidor concurrente basado en `GenServer` para administrar sesiones de usuario,
+  control de acceso en tiempo de ejecución y persistencia de cuentas.
+
+  ##informacion del proyecto
+  - autor: Simon Lopez E, Luna Sofia Oviedo Rios, David Alejandro Henao Jaramillo
+  - fecha: noviembre del 2026
+  - licencia: GNU GPL v3
+  """
   use GenServer
 
   alias Emergencias.Persistencia
   alias Emergencias.Usuarios.Cuentas
 
+  @doc """
+  Inicial el proceso de GenServer para el manejo de las sesiones.
+  """
   def start_link(opciones \\ []) do
     GenServer.start_link(__MODULE__, :ok, Keyword.put_new(opciones, :name, __MODULE__))
   end
 
+  @doc """
+  Conecta o registra a un usuario de manera síncrona mediante el servidor de sesiones.
+  """
   def conectar(usuario, clave, rol, zona),
     do: GenServer.call(__MODULE__, {:conectar, usuario, clave, rol, zona})
 
+  @doc """
+  Cierra la sesión activa de un usuario en el sistema.
+  """
   def desconectar(usuario), do: GenServer.call(__MODULE__, {:desconectar, usuario})
 
+  @doc """
+  Comprueba si un usuario se encuentra actualmente conectado en el sistema.
+  """
   def conectado?(usuario), do: GenServer.call(__MODULE__, {:conectado?, usuario})
 
+  @doc """
+  Verifica si un usuario conectado cuenta con autorización para realizar una acción específica.
+  """
   def autorizar(usuario, accion), do: GenServer.call(__MODULE__, {:autorizar, usuario, accion})
 
+  @doc """
+  Obtiene la información detallada de un usuario a partir de su identificador.
+  """
   def obtener_usuario(usuario), do: GenServer.call(__MODULE__, {:obtener_usuario, usuario})
 
+  @doc """
+  Registra una actividad en el historial del usuario y persiste los cambios.
+  """
   def registrar_actividad(usuario, accion),
     do: GenServer.call(__MODULE__, {:registrar_actividad, usuario, accion})
 

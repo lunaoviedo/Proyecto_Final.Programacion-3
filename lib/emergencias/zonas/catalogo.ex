@@ -1,4 +1,12 @@
 defmodule Emergencias.Zonas.Catalogo do
+  @moduledoc """
+  Gestiona el catálogo de zonas geográficas, el registro de sectores y puntos,
+  la validación de datos y la generación de resúmenes estructurados.
+  ##informacion del proyecto
+  - autor: Simon Lopez E, Luna Sofia Oviedo Rios, David Alejandro Henao Jaramillo
+  - fecha: noviembre del 2026
+  - licencia: GNU GPL v3
+  """
 
   alias Emergencias.Zonas.{Zona, Sector, Punto, ArbolZonas}
 
@@ -9,6 +17,9 @@ defmodule Emergencias.Zonas.Catalogo do
     "bajo" => :bajo
   }
 
+  @doc """
+  Registra una nueva zona en el catálogo tras validar sus parámetros y disponibilidad de código.
+  """
   def registrar_zona(zonas, codigo, nombre, nivel, afectados \\ 0) do
     with :ok <- validar_texto(codigo, :codigo_invalido),
          :ok <- validar_texto(nombre, :nombre_invalido),
@@ -20,6 +31,9 @@ defmodule Emergencias.Zonas.Catalogo do
     end
   end
 
+  @doc """
+  Registra un nuevo sector dentro de una zona existente.
+  """
   def registrar_sector(zonas, codigo_zona, codigo, nombre, afectados \\ 0) do
     with :ok <- validar_texto(codigo, :codigo_invalido),
          :ok <- validar_texto(nombre, :nombre_invalido),
@@ -32,6 +46,9 @@ defmodule Emergencias.Zonas.Catalogo do
     end
   end
 
+  @doc """
+  Registra un nuevo punto dentro de un sector específico del catálogo.
+  """
   def registrar_punto(zonas, codigo_sector, codigo, nombre, afectados \\ 0) do
     with :ok <- validar_texto(codigo, :codigo_invalido),
          :ok <- validar_texto(nombre, :nombre_invalido),
@@ -44,6 +61,9 @@ defmodule Emergencias.Zonas.Catalogo do
     end
   end
 
+  @doc """
+  Obtiene una zona del catálogo a partir de su código único.
+  """
   def obtener_zona(zonas, codigo) do
     case Map.fetch(zonas, codigo) do
       {:ok, zona} -> {:ok, zona}
@@ -51,6 +71,9 @@ defmodule Emergencias.Zonas.Catalogo do
     end
   end
 
+  @doc """
+  Genera un mapa resumen con estadísticas detalladas de una zona, incluyendo totales y rutas.
+  """
   def resumen(%Zona{} = zona) do
      %{
       codigo: zona.codigo,
@@ -64,7 +87,7 @@ defmodule Emergencias.Zonas.Catalogo do
     }
   end
 
-
+  #Funciones auxilliares requeridas en las funciones anteriores.
   defp totales_por_sector([]), do: []
 
   defp totales_por_sector([sector | resto]) do
@@ -94,6 +117,9 @@ defmodule Emergencias.Zonas.Catalogo do
   defp agregar_a_sector([sector | resto], codigo, punto),
     do: [sector | agregar_a_sector(resto, codigo, punto)]
 
+  @doc """
+  Convierte una estructura `Zona` y su jerarquía en un formato plano serializable.
+  """
   def a_registro(%Zona{} = z) do
     %{
       "codigo" => z.codigo,
@@ -123,6 +149,9 @@ defmodule Emergencias.Zonas.Catalogo do
   defp puntos_a_registro([p | resto]),
     do: [%{"codigo" => p.codigo, "nombre" => p.nombre, "afectados" => p.afectados} | puntos_a_registro(resto)]
 
+  @doc """
+  Reconstruye una estructura `Zona` y su árbol a partir de un mapa de registro persistido.
+  """
   def de_registro(
         %{"codigo" => c, "nombre" => n, "nivel" => nivel, "afectados" => a, "sectores" => sectores}
       ) do
@@ -155,7 +184,8 @@ defmodule Emergencias.Zonas.Catalogo do
 
   defp puntos_de_registro(_), do: {:error, :registro_invalido}
 
-   defp interpretar_nivel(nivel) when nivel in [:critico, :alto, :medio, :bajo], do: {:ok, nivel}
+  # Validaciones Internas
+  defp interpretar_nivel(nivel) when nivel in [:critico, :alto, :medio, :bajo], do: {:ok, nivel}
 
   defp interpretar_nivel(nivel) when is_binary(nivel) do
     case Map.fetch(@niveles, String.downcase(nivel)) do
