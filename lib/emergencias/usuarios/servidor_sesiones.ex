@@ -1,6 +1,5 @@
 defmodule Emergencias.Usuarios.ServidorSesiones do
   use GenServer
-  require Logger
 
   alias Emergencias.Persistencia
   alias Emergencias.Usuarios.Cuentas
@@ -32,6 +31,16 @@ defmodule Emergencias.Usuarios.ServidorSesiones do
       {:error, motivo} -> {:stop, {:persistencia, motivo}}
     end
   end
+
+  @impl true
+  def handle_call({:registrar_actividad, usuario, accion}, _from, estado) do
+  with {:ok, usuarios} <- Cuentas.registrar_actividad(estado.usuarios, usuario, accion),
+       :ok <- persistir(usuarios) do
+    {:reply, :ok, %{estado | usuarios: usuarios}}
+  else
+    {:error, motivo} -> {:reply, {:error, motivo}, estado}
+  end
+end
 
   @impl true
   def handle_call({:conectar, usuario, clave, rol, zona}, _from, estado) do
@@ -82,18 +91,6 @@ defmodule Emergencias.Usuarios.ServidorSesiones do
 
   def handle_call({:obtener_usuario, usuario}, _from, estado),
     do: {:reply, Map.fetch(estado.usuarios, usuario), estado}
-
-  @impl true
-  def handle_cast({:actividad, usuario, accion}, estado) do
-    with {:ok, usuarios} <- Cuentas.registrar_actividad(estado.usuarios, usuario, accion),
-         :ok <- persistir(usuarios) do
-      {:noreply, %{estado | usuarios: usuarios}}
-    else
-      {:error, motivo} ->
-        Logger.warning("No se pudo registrar la actividad de #{usuario}: #{inspect(motivo)}")
-        {:noreply, estado}
-    end
-  end
 
   defp abrir_sesion(estado, usuarios, usuario),
   do: %{estado | usuarios: usuarios, sesiones: MapSet.put(estado.sesiones, usuario)}

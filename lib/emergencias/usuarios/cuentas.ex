@@ -18,11 +18,10 @@ defmodule Emergencias.Usuarios.Cuentas do
       :enviar_mensaje_familiar, :listar_mensajes_familiares, :reportar_mascota,
       :cotejar_mascotas, :registrar_ingreso, :registrar_salida, :consultar_albergue, :consultar_zona, :listar_zonas
     ],
-    coordinador: :todo_menos_admin,
+    coordinador: :todo,
     administrador: :todo
   }
 
-  @solo_administrador [:registrar_zona]
 
    def registrar(usuarios, atributos) do
     with :ok <- validar_usuario(atributos[:usuario]),
@@ -73,21 +72,22 @@ defmodule Emergencias.Usuarios.Cuentas do
   def puede?(rol, accion) do
     case Map.fetch!(@permisos, rol) do
       :todo -> true
-      :todo_menos_admin -> accion not in @solo_administrador
       lista -> accion in lista
     end
   end
 
   def registrar_actividad(usuarios, usuario, accion) do
-    case Map.fetch(usuario, usuario) do
-      {:ok, encontrado} ->
-        entrada = %{"fecha" => DateTime.to_iso8601(DateTime.utc_now()), "accion" => accion}
-        {:ok, Map.put(usuarios, usuario, %{encontrado | actividad: [entrada | encontrado.actividad]})}
+  case Map.fetch(usuarios, usuario) do
+    {:ok, encontrado} ->
+      entrada = %{"fecha" => DateTime.to_iso8601(DateTime.utc_now()), "accion" => accion}
 
-      :error ->
-        {:error, :no_encontrado}
-     end
+      {:ok,
+       Map.put(usuarios, usuario, %{encontrado | actividad: [entrada | encontrado.actividad]})}
+
+    :error ->
+      {:error, :no_encontrado}
   end
+end
 
   def a_registro(%Usuario{} = u) do
     %{
