@@ -25,7 +25,7 @@ defmodule Emergencias.Comandos do
   alias Emergencias.Usuarios.ServidorSesiones
   alias Emergencias.Zonas.ServidorZonas
 
-  @modulos_equipo []
+  @modulos_equipo [Emergencias.Recursos.ComandosRecursos]
 
   @usos %{
     "connect" => "connect usuario clave tipo zona",
