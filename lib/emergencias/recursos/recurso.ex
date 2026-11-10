@@ -12,7 +12,7 @@ defmodule Emergencias.Recursos.Recurso do
   # Definimos las claves que tendrá la estructura
   defstruct [:codigo, :nombre, :categoria, :cantidad, :unidad, :ubicacion]
 
-  @doc """
+  @typedoc """
   Especificación de tipos para ayudar a la validación del código y documentación.
   Garantizamos que la cantidad nunca sea un número negativo en el tipo.
   """
