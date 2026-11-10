@@ -19,7 +19,8 @@ defmodule Emergencias.Zonas.ArbolZonas do
 
   defp sumar_sectores([]), do: 0
 
-  defp sumar_sectores([%Sector{afectados: a, puntos: puntos} | resto]), do: a + sumar_puntos(puntos) + sumar_sectores(resto)
+  defp sumar_sectores([%Sector{afectados: a, puntos: puntos} | resto]),
+    do: a + sumar_puntos(puntos) + sumar_sectores(resto)
 
   defp sumar_puntos([]), do: 0
   defp sumar_puntos([%Punto{afectados: a} | resto]), do: a + sumar_puntos(resto)
@@ -31,10 +32,11 @@ defmodule Emergencias.Zonas.ArbolZonas do
 
   defp contar_en_sectores([]), do: 0
 
-  defp contar_en_sectores([%Sector{puntos: puntos} | resto]), do: contar_lista(puntos) + contar_en_sectores(resto)
+  defp contar_en_sectores([%Sector{puntos: puntos} | resto]),
+    do: contar_lista(puntos) + contar_en_sectores(resto)
 
   defp contar_lista([]), do: 0
-  defp contar_lista([_ | resto]), do: 1+ contar_lista(resto)
+  defp contar_lista([_ | resto]), do: 1 + contar_lista(resto)
 
   @doc """
   Busca y retorna un nodo (zona, sector o punto) dentro del árbol a partir de su código único.
@@ -60,7 +62,8 @@ defmodule Emergencias.Zonas.ArbolZonas do
   Genera una lista con las rutas jerárquicas en formato de texto (ej. "Zona > Sector > Punto")
   para toda la estructura de la zona.
   """
-  def rutas(%Zona{nombre: nombre, sectores: sectores}), do: [nombre | rutas_sectores(sectores, nombre)]
+  def rutas(%Zona{nombre: nombre, sectores: sectores}),
+    do: [nombre | rutas_sectores(sectores, nombre)]
 
   defp rutas_sectores([], _prefijo), do: []
 

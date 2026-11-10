@@ -20,7 +20,14 @@ defmodule Emergencias.Recursos.ComandosRecursos do
   """
 
   # Comando: register_resource
-  def ejecutar(sesion, "register_resource", [codigo, nombre, categoria, cantidad_str, unidad, ubicacion]) do
+  def ejecutar(sesion, "register_resource", [
+        codigo,
+        nombre,
+        categoria,
+        cantidad_str,
+        unidad,
+        ubicacion
+      ]) do
     con_permiso(sesion, :registrar_recurso, fn ->
       case Integer.parse(cantidad_str) do
         {cantidad, ""} when cantidad >= 0 ->
@@ -51,9 +58,13 @@ defmodule Emergencias.Recursos.ComandosRecursos do
         {cantidad, ""} when cantidad > 0 ->
           case ServidorInventario.asignar_recurso(codigo, cantidad) do
             {:ok, cantidad_restante} ->
-              {:ok, "Se asignaron #{cantidad} unidades del recurso #{codigo}. Restan: #{cantidad_restante}.", sesion}
+              {:ok,
+               "Se asignaron #{cantidad} unidades del recurso #{codigo}. Restan: #{cantidad_restante}.",
+               sesion}
+
             {:error, :inventario_insuficiente} ->
               {:error, "Inventario insuficiente para el recurso #{codigo}."}
+
             {:error, :recurso_no_encontrado} ->
               {:error, "El recurso #{codigo} no existe."}
           end
@@ -79,7 +90,10 @@ defmodule Emergencias.Recursos.ComandosRecursos do
           }
 
           ServidorAlbergues.registrar_albergue(albergue)
-          {:ok, "Albergue #{nombre} (#{codigo}) registrado con capacidad de #{capacidad} personas.", sesion}
+
+          {:ok,
+           "Albergue #{nombre} (#{codigo}) registrado con capacidad de #{capacidad} personas.",
+           sesion}
 
         _ ->
           {:error, "La capacidad debe ser un número entero no negativo."}
@@ -96,9 +110,13 @@ defmodule Emergencias.Recursos.ComandosRecursos do
         {cantidad, ""} when cantidad > 0 ->
           case ServidorAlbergues.ingresar_personas(codigo, cantidad) do
             {:ok, nueva_ocupacion} ->
-              {:ok, "Ingresaron #{cantidad} personas al albergue #{codigo}. Ocupación actual: #{nueva_ocupacion}.", sesion}
+              {:ok,
+               "Ingresaron #{cantidad} personas al albergue #{codigo}. Ocupación actual: #{nueva_ocupacion}.",
+               sesion}
+
             {:error, :capacidad_excedida} ->
               {:error, "Capacidad excedida en el albergue #{codigo}."}
+
             {:error, :albergue_no_encontrado} ->
               {:error, "El albergue #{codigo} no existe."}
           end
@@ -114,7 +132,6 @@ defmodule Emergencias.Recursos.ComandosRecursos do
   # Si no es ninguno de los anteriores, no aplica a este módulo
   def ejecutar(_sesion, _comando, _args), do: :no_aplica
 
-
   # Funciones privadas de ayuda
 
   defp con_permiso(sesion, accion, funcion) do
@@ -124,9 +141,11 @@ defmodule Emergencias.Recursos.ComandosRecursos do
           {:ok, _mensaje, _sesion} = resultado ->
             ServidorSesiones.registrar_actividad(sesion, Atom.to_string(accion))
             resultado
+
           error ->
             error
         end
+
       {:error, motivo} ->
         {:error, "Error de autorización: #{inspect(motivo)}"}
     end

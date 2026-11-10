@@ -16,7 +16,11 @@ defmodule Emergencias.CLI do
   y entrando en el ciclo de ejecución de comandos.
   """
   def iniciar do
-    Util2.mostrar("Sistema de Coordinación de Emergencias. Escribe 'salir' para terminar.", :mensaje)
+    Util2.mostrar(
+      "Sistema de Coordinación de Emergencias. Escribe 'salir' para terminar.",
+      :mensaje
+    )
+
     ciclo(nil)
   end
 

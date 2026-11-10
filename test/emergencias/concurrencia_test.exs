@@ -4,7 +4,8 @@ defmodule Emergencias.ConcurrenciaTest do
   alias Emergencias.Usuarios.ServidorSesiones
   alias Emergencias.Zonas.{ServidorZonas, ArbolZonas}
 
-defp unico(prefijo), do: prefijo <> Base.encode16(:crypto.strong_rand_bytes(6))
+  defp unico(prefijo), do: prefijo <> Base.encode16(:crypto.strong_rand_bytes(6))
+
   defp en_paralelo(cantidad, funcion) do
     1..cantidad
     |> Task.async_stream(funcion, max_concurrency: cantidad, timeout: 15_000)
@@ -26,7 +27,9 @@ defp unico(prefijo), do: prefijo <> Base.encode16(:crypto.strong_rand_bytes(6))
     usuario = unico("u")
 
     resultados =
-      en_paralelo(10, fn _ -> ServidorSesiones.conectar(usuario, "1234", "ciudadano", "centro") end)
+      en_paralelo(10, fn _ ->
+        ServidorSesiones.conectar(usuario, "1234", "ciudadano", "centro")
+      end)
 
     assert Enum.count(resultados, &match?({:ok, _, _}, &1)) == 1
     assert Enum.count(resultados, &(&1 == {:error, :ya_conectado})) == 9

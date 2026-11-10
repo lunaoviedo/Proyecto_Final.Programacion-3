@@ -1,5 +1,5 @@
 defmodule Emergencias.Usuarios.Usuario do
-@moduledoc """
+  @moduledoc """
   Se define la estructura de datos y los tipos asociados a los usuarios del sistema.
   ##informacion del proyecto
   - autor: Simon Lopez E, Luna Sofia Oviedo Rios, David Alejandro Henao Jaramillo
