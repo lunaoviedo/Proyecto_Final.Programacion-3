@@ -11,7 +11,8 @@ defmodule Emergencias.Zonas.Catalogo do
   alias Emergencias.Zonas.{Zona, Sector, Punto, ArbolZonas}
 
   @niveles %{
-    "critico" => :critico, "crítico" => :critico,
+    "critico" => :critico,
+    "crítico" => :critico,
     "alto" => :alto,
     "medio" => :medio,
     "bajo" => :bajo
@@ -75,7 +76,7 @@ defmodule Emergencias.Zonas.Catalogo do
   Genera un mapa resumen con estadísticas detalladas de una zona, incluyendo totales y rutas.
   """
   def resumen(%Zona{} = zona) do
-     %{
+    %{
       codigo: zona.codigo,
       nombre: zona.nombre,
       nivel: zona.nivel,
@@ -87,7 +88,7 @@ defmodule Emergencias.Zonas.Catalogo do
     }
   end
 
-  #Funciones auxilliares requeridas en las funciones anteriores.
+  # Funciones auxilliares requeridas en las funciones anteriores.
   defp totales_por_sector([]), do: []
 
   defp totales_por_sector([sector | resto]) do
@@ -147,14 +148,21 @@ defmodule Emergencias.Zonas.Catalogo do
   defp puntos_a_registro([]), do: []
 
   defp puntos_a_registro([p | resto]),
-    do: [%{"codigo" => p.codigo, "nombre" => p.nombre, "afectados" => p.afectados} | puntos_a_registro(resto)]
+    do: [
+      %{"codigo" => p.codigo, "nombre" => p.nombre, "afectados" => p.afectados}
+      | puntos_a_registro(resto)
+    ]
 
   @doc """
   Reconstruye una estructura `Zona` y su árbol a partir de un mapa de registro persistido.
   """
-  def de_registro(
-        %{"codigo" => c, "nombre" => n, "nivel" => nivel, "afectados" => a, "sectores" => sectores}
-      ) do
+  def de_registro(%{
+        "codigo" => c,
+        "nombre" => n,
+        "nivel" => nivel,
+        "afectados" => a,
+        "sectores" => sectores
+      }) do
     with {:ok, nivel} <- interpretar_nivel(nivel),
          {:ok, sectores} <- sectores_de_registro(sectores) do
       {:ok, %Zona{codigo: c, nombre: n, nivel: nivel, afectados: a, sectores: sectores}}
@@ -165,7 +173,9 @@ defmodule Emergencias.Zonas.Catalogo do
 
   defp sectores_de_registro([]), do: {:ok, []}
 
-  defp sectores_de_registro([%{"codigo" => c, "nombre" => n, "afectados" => a, "puntos" => p} | resto]) do
+  defp sectores_de_registro([
+         %{"codigo" => c, "nombre" => n, "afectados" => a, "puntos" => p} | resto
+       ]) do
     with {:ok, puntos} <- puntos_de_registro(p),
          {:ok, sectores} <- sectores_de_registro(resto) do
       {:ok, [%Sector{codigo: c, nombre: n, afectados: a, puntos: puntos} | sectores]}
@@ -203,8 +213,9 @@ defmodule Emergencias.Zonas.Catalogo do
   defp validar_afectados(_), do: {:error, :afectados_invalidos}
 
   defp verificar_codigo_libre(zonas, codigo) do
-    en_uso? = Enum.any?(Map.values(zonas), fn z -> ArbolZonas.buscar_nodo(z, codigo) != :error end)
+    en_uso? =
+      Enum.any?(Map.values(zonas), fn z -> ArbolZonas.buscar_nodo(z, codigo) != :error end)
+
     if en_uso?, do: {:error, :codigo_existente}, else: :ok
   end
-
 end

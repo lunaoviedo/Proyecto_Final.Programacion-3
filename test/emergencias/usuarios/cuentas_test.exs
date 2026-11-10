@@ -13,7 +13,8 @@ defmodule Emergencias.Usuarios.CuentasTest do
   test "conectar valida la clave si el usuario ya existe" do
     {:ok, usuarios, _, _} = Cuentas.conectar(%{}, "laura", "1234", "coordinador", "centro")
 
-    assert {:ok, _, _, :autenticado} = Cuentas.conectar(usuarios, "laura", "1234", "coordinador", "centro")
+    assert {:ok, _, _, :autenticado} =
+             Cuentas.conectar(usuarios, "laura", "1234", "coordinador", "centro")
 
     assert {:error, :credenciales_invalidas} =
              Cuentas.conectar(usuarios, "laura", "xxxx", "coordinador", "centro")

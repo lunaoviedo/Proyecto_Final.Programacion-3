@@ -38,7 +38,9 @@ defmodule Emergencias.ComandosTest do
     usuario = unico("c")
     {:ok, _, _} = Comandos.ejecutar(nil, "connect #{usuario} 1234 ciudadano centro")
 
-    assert {:error, mensaje} = Comandos.ejecutar(usuario, "register_zone #{unico("Z")} Norte alto")
+    assert {:error, mensaje} =
+             Comandos.ejecutar(usuario, "register_zone #{unico("Z")} Norte alto")
+
     assert mensaje =~ "permiso"
 
     Comandos.ejecutar(usuario, "disconnect")

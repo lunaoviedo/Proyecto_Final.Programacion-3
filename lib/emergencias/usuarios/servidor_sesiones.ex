@@ -64,13 +64,13 @@ defmodule Emergencias.Usuarios.ServidorSesiones do
 
   @impl true
   def handle_call({:registrar_actividad, usuario, accion}, _from, estado) do
-  with {:ok, usuarios} <- Cuentas.registrar_actividad(estado.usuarios, usuario, accion),
-       :ok <- persistir(usuarios) do
-    {:reply, :ok, %{estado | usuarios: usuarios}}
-  else
-    {:error, motivo} -> {:reply, {:error, motivo}, estado}
+    with {:ok, usuarios} <- Cuentas.registrar_actividad(estado.usuarios, usuario, accion),
+         :ok <- persistir(usuarios) do
+      {:reply, :ok, %{estado | usuarios: usuarios}}
+    else
+      {:error, motivo} -> {:reply, {:error, motivo}, estado}
+    end
   end
-end
 
   @impl true
   def handle_call({:conectar, usuario, clave, rol, zona}, _from, estado) do
@@ -123,7 +123,7 @@ end
     do: {:reply, Map.fetch(estado.usuarios, usuario), estado}
 
   defp abrir_sesion(estado, usuarios, usuario),
-  do: %{estado | usuarios: usuarios, sesiones: MapSet.put(estado.sesiones, usuario)}
+    do: %{estado | usuarios: usuarios, sesiones: MapSet.put(estado.sesiones, usuario)}
 
   defp persistir(usuarios) do
     registros = usuarios |> Map.values() |> Enum.map(&Cuentas.a_registro/1)

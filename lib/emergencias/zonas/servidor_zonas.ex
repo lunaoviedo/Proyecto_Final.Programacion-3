@@ -14,7 +14,6 @@ defmodule Emergencias.Zonas.ServidorZonas do
   alias Emergencias.Persistencia
   alias Emergencias.Zonas.Catalogo
 
-
   @doc """
   Inicia el proceso del `GenServer` para la gestión de zonas.
   """
@@ -55,7 +54,6 @@ defmodule Emergencias.Zonas.ServidorZonas do
   """
   def listar_zonas, do: GenServer.call(__MODULE__, :listar_zonas)
 
-
   @impl true
   def init(:ok) do
     with {:ok, registros} <- Persistencia.cargar(:zonas),
@@ -74,7 +72,8 @@ defmodule Emergencias.Zonas.ServidorZonas do
     do: confirmar(Catalogo.registrar_sector(zonas, codigo_zona, codigo, nombre, afectados), zonas)
 
   def handle_call({:registrar_punto, codigo_sector, codigo, nombre, afectados}, _from, zonas),
-    do: confirmar(Catalogo.registrar_punto(zonas, codigo_sector, codigo, nombre, afectados), zonas)
+    do:
+      confirmar(Catalogo.registrar_punto(zonas, codigo_sector, codigo, nombre, afectados), zonas)
 
   def handle_call({:obtener_zona, codigo}, _from, zonas),
     do: {:reply, Catalogo.obtener_zona(zonas, codigo), zonas}
@@ -88,7 +87,6 @@ defmodule Emergencias.Zonas.ServidorZonas do
 
   def handle_call(:listar_zonas, _from, zonas),
     do: {:reply, Map.values(zonas), zonas}
-
 
   defp confirmar({:ok, nuevas_zonas, valor}, zonas) do
     case persistir(nuevas_zonas) do

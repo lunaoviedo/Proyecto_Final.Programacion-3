@@ -19,9 +19,13 @@ defmodule Emergencias.Recursos.Recurso do
   @type t :: %__MODULE__{
           codigo: String.t(),
           nombre: String.t(),
-          categoria: String.t(), # Ej: "agua", "alimentos"
-          cantidad: non_neg_integer(), # Validamos que no existan cantidades negativas
-          unidad: String.t(), # Ej: "litros", "kilos"
-          ubicacion: String.t() # Ej: "centro_acopio_1"
+          # Ej: "agua", "alimentos"
+          categoria: String.t(),
+          # Validamos que no existan cantidades negativas
+          cantidad: non_neg_integer(),
+          # Ej: "litros", "kilos"
+          unidad: String.t(),
+          # Ej: "centro_acopio_1"
+          ubicacion: String.t()
         }
 end

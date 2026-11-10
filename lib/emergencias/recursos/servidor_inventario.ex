@@ -26,13 +26,12 @@ defmodule Emergencias.Recursos.ServidorInventario do
   Retorna {:ok, cantidad_restante} si hay éxito, o {:error, razon} si falla.
   """
   # Usamos 'when' (guarda) para asegurar que no nos pidan números negativos o cero
-  def asignar_recurso(codigo, cantidad_requerida) when is_integer(cantidad_requerida) and cantidad_requerida > 0 do
+  def asignar_recurso(codigo, cantidad_requerida)
+      when is_integer(cantidad_requerida) and cantidad_requerida > 0 do
     GenServer.call(__MODULE__, {:asignar, codigo, cantidad_requerida})
   end
 
-  
   # 2. CALLBACKS DEL SERVIDOR
-
 
   @impl true
   def init(estado_inicial) do

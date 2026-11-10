@@ -28,9 +28,14 @@ defmodule Emergencias.Zonas.CatalogoTest do
 
   test "valida nivel, afectados y existencia de padres" do
     assert {:error, :nivel_invalido} = Catalogo.registrar_zona(%{}, "Z1", "Centro", "gigante")
-    assert {:error, :afectados_invalidos} = Catalogo.registrar_zona(%{}, "Z1", "Centro", "alto", -5)
+
+    assert {:error, :afectados_invalidos} =
+             Catalogo.registrar_zona(%{}, "Z1", "Centro", "alto", -5)
+
     assert {:error, :zona_no_encontrada} = Catalogo.registrar_sector(%{}, "ZZ", "S1", "X")
-    assert {:error, :sector_no_encontrado} = Catalogo.registrar_punto(catalogo_base(), "SS", "P9", "X")
+
+    assert {:error, :sector_no_encontrado} =
+             Catalogo.registrar_punto(catalogo_base(), "SS", "P9", "X")
   end
 
   test "a_registro y de_registro son inversas" do

@@ -2,13 +2,12 @@ defmodule Emergencias.Usuarios.Cuentas do
   @moduledoc """
   Gestiona la logica de cuentas de usuario, autentificacion, control de permisos
   basandose en los roles y su respectiva vlidacion de atributos.
-  
+
   ##informacion del proyecto
   - autor: Simon Lopez E, Luna Sofia Oviedo Rios, David Alejandro Henao Jaramillo
   - fecha: noviembre del 2026
   - licencia: GNU GPL v3
   """
-
 
   alias Emergencias.Usuarios.Usuario
 
@@ -19,25 +18,41 @@ defmodule Emergencias.Usuarios.Cuentas do
     "administrador" => :administrador
   }
 
-   @permisos %{
+  @permisos %{
     ciudadano: [
-      :registrar_necesidad, :listar_necesidades, :reportar_persona, :buscar_persona,
-      :enviar_mensaje_familiar, :listar_mensajes_familiares, :reportar_mascota, :consultar_zona, :listar_zonas
+      :registrar_necesidad,
+      :listar_necesidades,
+      :reportar_persona,
+      :buscar_persona,
+      :enviar_mensaje_familiar,
+      :listar_mensajes_familiares,
+      :reportar_mascota,
+      :consultar_zona,
+      :listar_zonas
     ],
     voluntario: [
-      :registrar_necesidad, :listar_necesidades, :reportar_persona, :buscar_persona,
-      :enviar_mensaje_familiar, :listar_mensajes_familiares, :reportar_mascota,
-      :cotejar_mascotas, :registrar_ingreso, :registrar_salida, :consultar_albergue, :consultar_zona, :listar_zonas
+      :registrar_necesidad,
+      :listar_necesidades,
+      :reportar_persona,
+      :buscar_persona,
+      :enviar_mensaje_familiar,
+      :listar_mensajes_familiares,
+      :reportar_mascota,
+      :cotejar_mascotas,
+      :registrar_ingreso,
+      :registrar_salida,
+      :consultar_albergue,
+      :consultar_zona,
+      :listar_zonas
     ],
     coordinador: :todo,
     administrador: :todo
   }
 
-
-@doc """
-Registra un usuario nuevo en el mapa de los usuarios luego de haber validado cada uno de sus atributos.
-Devuelve un `{:ok, usuarios_actualizados, nuevo_usuario}` si es exitoso, o un error si alguna validación falla.
-"""
+  @doc """
+  Registra un usuario nuevo en el mapa de los usuarios luego de haber validado cada uno de sus atributos.
+  Devuelve un `{:ok, usuarios_actualizados, nuevo_usuario}` si es exitoso, o un error si alguna validación falla.
+  """
   def registrar(usuarios, atributos) do
     with :ok <- validar_usuario(atributos[:usuario]),
          :ok <- validar_clave(atributos[:clave]),
@@ -65,10 +80,11 @@ Devuelve un `{:ok, usuarios_actualizados, nuevo_usuario}` si es exitoso, o un er
     case Map.fetch(usuarios, usuario) do
       {:ok, %Usuario{hash_clave: hash} = encontrado} ->
         if hash == calcular_hash(clave),
-        do: {:ok, encontrado},
-        else: {:error, :credenciales_invalidas}
+          do: {:ok, encontrado},
+          else: {:error, :credenciales_invalidas}
 
-      :error -> {:error, :no_encontrado}
+      :error ->
+        {:error, :no_encontrado}
     end
   end
 
@@ -84,7 +100,13 @@ Devuelve un `{:ok, usuarios_actualizados, nuevo_usuario}` si es exitoso, o un er
         {:ok, usuarios, encontrado, :autenticado}
       end
     else
-      atributos = %{usuario: usuario, clave: clave, nombre_completo: usuario, rol: rol, zona: zona}
+      atributos = %{
+        usuario: usuario,
+        clave: clave,
+        nombre_completo: usuario,
+        rol: rol,
+        zona: zona
+      }
 
       with {:ok, usuarios, nuevo} <- registrar(usuarios, atributos) do
         {:ok, usuarios, nuevo, :registrado}
@@ -107,21 +129,21 @@ Devuelve un `{:ok, usuarios_actualizados, nuevo_usuario}` si es exitoso, o un er
   incluyendo la marca de tiempo.
   """
   def registrar_actividad(usuarios, usuario, accion) do
-  case Map.fetch(usuarios, usuario) do
-    {:ok, encontrado} ->
-      entrada = %{"fecha" => DateTime.to_iso8601(DateTime.utc_now()), "accion" => accion}
+    case Map.fetch(usuarios, usuario) do
+      {:ok, encontrado} ->
+        entrada = %{"fecha" => DateTime.to_iso8601(DateTime.utc_now()), "accion" => accion}
 
-      {:ok,
-       Map.put(usuarios, usuario, %{encontrado | actividad: [entrada | encontrado.actividad]})}
+        {:ok,
+         Map.put(usuarios, usuario, %{encontrado | actividad: [entrada | encontrado.actividad]})}
 
-    :error ->
-      {:error, :no_encontrado}
+      :error ->
+        {:error, :no_encontrado}
+    end
   end
-end
 
-@doc """
-Convierte una estructura `Usuario` en un mapa plano apto para persistencia.
-"""
+  @doc """
+  Convierte una estructura `Usuario` en un mapa plano apto para persistencia.
+  """
   def a_registro(%Usuario{} = u) do
     %{
       "usuario" => u.usuario,
@@ -160,17 +182,21 @@ Convierte una estructura `Usuario` en un mapa plano apto para persistencia.
 
   def de_registro(_), do: {:error, :registro_invalido}
 
-  #Las siguientes funciones sirven como utilidad y validacion para las funciones principales de arriba.
+  # Las siguientes funciones sirven como utilidad y validacion para las funciones principales de arriba.
   defp calcular_hash(clave), do: Base.encode16(:crypto.hash(:sha256, clave), case: :lower)
 
-  defp interpretar_rol(rol) when rol in [:ciudadano, :voluntario, :coordinador, :administrador], do: {:ok, rol}
+  defp interpretar_rol(rol) when rol in [:ciudadano, :voluntario, :coordinador, :administrador],
+    do: {:ok, rol}
+
   defp interpretar_rol(rol) when is_binary(rol) do
     case Map.fetch(@roles, rol) do
       {:ok, atomo} -> {:ok, atomo}
       :error -> {:error, :rol_invalido}
     end
   end
+
   defp interpretar_rol(_), do: {:error, :rol_invalido}
+
   defp validar_usuario(u) when is_binary(u) do
     if String.match?(u, ~r/^[a-zA-Z0-9_]{3,20}$/), do: :ok, else: {:error, :usuario_invalido}
   end
@@ -186,7 +212,4 @@ Convierte una estructura `Usuario` en un mapa plano apto para persistencia.
   defp verificar_disponible(usuarios, usuario) do
     if Map.has_key?(usuarios, usuario), do: {:error, :usuario_existente}, else: :ok
   end
-
-
-
 end
