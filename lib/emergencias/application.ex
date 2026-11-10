@@ -10,7 +10,8 @@ defmodule Emergencias.Application do
     children = [
       Emergencias.Usuarios.ServidorSesiones,
       Emergencias.Zonas.ServidorZonas,
-      Emergencias.Recursos.ServidorInventario
+      Emergencias.Recursos.ServidorInventario,
+      Emergencias.Recursos.ServidorAlbergues
 
     ]
 
