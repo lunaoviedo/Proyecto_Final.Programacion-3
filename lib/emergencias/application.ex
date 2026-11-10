@@ -9,7 +9,8 @@ defmodule Emergencias.Application do
   def start(_type, _args) do
     children = [
       Emergencias.Usuarios.ServidorSesiones,
-      Emergencias.Zonas.ServidorZonas
+      Emergencias.Zonas.ServidorZonas,
+      Emergencias.Recursos.ServidorInventario
 
     ]
 
