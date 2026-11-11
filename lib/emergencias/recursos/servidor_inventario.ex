@@ -14,7 +14,7 @@ defmodule Emergencias.Recursos.ServidorInventario do
   end
 
   def registrar_recurso(%Recurso{} = recurso) do
-    GenServer.cast(__MODULE__, {:registrar, recurso})
+    GenServer.call(__MODULE__, {:registrar, recurso})
   end
 
   def obtener_inventario() do
@@ -39,9 +39,15 @@ defmodule Emergencias.Recursos.ServidorInventario do
   end
 
   @impl true
-  def handle_cast({:registrar, recurso}, estado) do
-    nuevo_estado = Map.put(estado, recurso.codigo, recurso)
-    {:noreply, nuevo_estado}
+  def handle_call({:registrar, recurso}, _from, estado) do
+    if Map.has_key?(estado, recurso.codigo) do
+      # Si la llave ya existe, bloqueamos el registro
+      {:reply, {:error, :recurso_ya_existe}, estado}
+    else
+      # Si es nuevo, lo guardamos y respondemos :ok
+      nuevo_estado = Map.put(estado, recurso.codigo, recurso)
+      {:reply, :ok, nuevo_estado}
+    end
   end
 
   @impl true
