@@ -12,7 +12,8 @@ defmodule Emergencias.Application do
       Emergencias.Zonas.ServidorZonas,
       Emergencias.Recursos.ServidorInventario,
       Emergencias.Recursos.ServidorAlbergues,
-      Emergencias.Mascotas.ServidorMascotas
+      Emergencias.Mascotas.ServidorMascotas,
+      Emergencias.Familiares.ServidorFamiliares
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
