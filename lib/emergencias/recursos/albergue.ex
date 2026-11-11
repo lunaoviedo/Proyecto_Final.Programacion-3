@@ -29,4 +29,33 @@ defmodule Emergencias.Recursos.Albergue do
           capacidad_maxima: non_neg_integer(),
           ocupacion: [String.t()] # Lista de identificadores de personas o grupos alojados
         }
+
+
+  @doc """
+  Convierte la estructura Albergue en un mapa de cadenas para la persistencia JSON.
+  """
+  def a_registro(%__MODULE__{} = albergue) do
+    %{
+      "codigo" => albergue.codigo,
+      "nombre" => albergue.nombre,
+      "zona" => albergue.zona,
+      "capacidad_maxima" => albergue.capacidad_maxima,
+      "ocupacion" => albergue.ocupacion
+    }
+  end
+
+  @doc """
+  Reconstruye la estructura Albergue a partir de un mapa de cadenas cargado del disco.
+  """
+  def de_registro(mapa) do
+    %__MODULE__{
+      codigo: mapa["codigo"],
+      nombre: mapa["nombre"],
+      zona: mapa["zona"],
+      capacidad_maxima: mapa["capacidad_maxima"],
+      # Si por algún motivo no hay ocupación en el archivo, iniciamos con lista vacía
+      ocupacion: mapa["ocupacion"] || []
+    }
+  end
+  
 end
