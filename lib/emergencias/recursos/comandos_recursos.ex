@@ -39,23 +39,30 @@ defmodule Emergencias.Recursos.ComandosRecursos do
 
   def ejecutar(_sesion, "register_resource", _args), do: uso("register_resource")
 
-  def ejecutar(sesion, "request_resource", [codigo, cantidad_str]) do
-    con_permiso(sesion, :asignar_recurso, fn ->
+  def ejecutar(sesion, "register_resource", [codigo, nombre, categoria, cantidad_str, unidad, ubicacion]) do
+    con_permiso(sesion, :registrar_recurso, fn ->
       case Integer.parse(cantidad_str) do
-        {cantidad, ""} when cantidad > 0 ->
-          case ServidorInventario.asignar_recurso(codigo, cantidad) do
-            {:ok, cantidad_restante} ->
-              {:ok, "Se asignaron #{cantidad} unidades del recurso #{codigo}. Restan: #{cantidad_restante}.", sesion}
+        {cantidad, ""} when cantidad >= 0 ->
+          recurso = %Recurso{
+            codigo: codigo,
+            nombre: nombre,
+            categoria: categoria,
+            cantidad: cantidad,
+            unidad: unidad,
+            ubicacion: ubicacion
+          }
 
-            {:error, :inventario_insuficiente} ->
-              {:error, "Inventario insuficiente para el recurso #{codigo}."}
+          # Evaluamos la respuesta síncrona
+          case ServidorInventario.registrar_recurso(recurso) do
+            :ok ->
+              {:ok, "Recurso #{nombre} (#{codigo}) registrado con #{cantidad} #{unidad}.", sesion}
 
-            {:error, :recurso_no_encontrado} ->
-              {:error, "El recurso #{codigo} no existe."}
+            {:error, :recurso_ya_existe} ->
+              {:error, "El recurso con código #{codigo} ya existe en el sistema."}
           end
 
         _ ->
-          {:error, "La cantidad a solicitar debe ser un número entero mayor a cero."}
+          {:error, "La cantidad debe ser un número entero no negativo."}
       end
     end)
   end
