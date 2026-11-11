@@ -2,10 +2,11 @@ defmodule Emergencias.Recursos.ServidorInventario do
   @moduledoc """
   GenServer encargado de gestionar el inventario global de recursos.
   Garantiza la concurrencia procesando las solicitudes una por una,
-  evitando inconsistencias en las cantidades asignadas.
+  evitando inconsistencias en las cantidades asignadas y persistiendo datos.
   """
   use GenServer
   alias Emergencias.Recursos.Recurso
+  alias Emergencias.Persistencia # Importamos el módulo de persistencia
 
   # 1. API DEL CLIENTE
 
@@ -25,7 +26,6 @@ defmodule Emergencias.Recursos.ServidorInventario do
   Intenta descontar una cantidad específica de un recurso.
   Retorna {:ok, cantidad_restante} si hay éxito, o {:error, razon} si falla.
   """
-  # Usamos 'when' (guarda) para asegurar que no nos pidan números negativos o cero
   def asignar_recurso(codigo, cantidad_requerida)
       when is_integer(cantidad_requerida) and cantidad_requerida > 0 do
     GenServer.call(__MODULE__, {:asignar, codigo, cantidad_requerida})
@@ -34,18 +34,29 @@ defmodule Emergencias.Recursos.ServidorInventario do
   # 2. CALLBACKS DEL SERVIDOR
 
   @impl true
-  def init(estado_inicial) do
-    {:ok, estado_inicial}
+  def init(_estado_inicial) do
+    # Al arrancar, cargamos el inventario desde el disco
+    estado =
+      case Persistencia.cargar(:recursos) do
+        {:ok, registros} ->
+          registros
+          |> Enum.map(&Recurso.de_registro/1)
+          |> Enum.into(%{}, fn recurso -> {recurso.codigo, recurso} end)
+
+        {:error, _motivo} ->
+          %{}
+      end
+
+    {:ok, estado}
   end
 
   @impl true
   def handle_call({:registrar, recurso}, _from, estado) do
     if Map.has_key?(estado, recurso.codigo) do
-      # Si la llave ya existe, bloqueamos el registro
       {:reply, {:error, :recurso_ya_existe}, estado}
     else
-      # Si es nuevo, lo guardamos y respondemos :ok
       nuevo_estado = Map.put(estado, recurso.codigo, recurso)
+      guardar_estado(nuevo_estado) # Sincronizamos la RAM con el disco
       {:reply, :ok, nuevo_estado}
     end
   end
@@ -56,32 +67,34 @@ defmodule Emergencias.Recursos.ServidorInventario do
     {:reply, lista_recursos, estado}
   end
 
-  # Nuevo callback para manejar la asignación de recursos
   @impl true
   def handle_call({:asignar, codigo, cantidad_requerida}, _from, estado) do
-    # Map.get busca en nuestro estado usando el código (ej: "R001")
     case Map.get(estado, codigo) do
       nil ->
-        # El recurso no existe en el inventario. Devolvemos un error en forma de tupla.
-        # No modificamos el estado.
         {:reply, {:error, :recurso_no_encontrado}, estado}
 
       recurso ->
-        # El recurso existe. Ahora validamos si hay suficiente cantidad.
         if recurso.cantidad >= cantidad_requerida do
-          # Sintaxis de actualización de un Struct: %{variable | clave: nuevo_valor}
           recurso_actualizado = %{recurso | cantidad: recurso.cantidad - cantidad_requerida}
-
-          # Guardamos el recurso actualizado en el estado
           nuevo_estado = Map.put(estado, codigo, recurso_actualizado)
 
-          # Respondemos con éxito y el nuevo estado
+          guardar_estado(nuevo_estado) # Sincronizamos el descuento con el disco
+
           {:reply, {:ok, recurso_actualizado.cantidad}, nuevo_estado}
         else
-          # Hay recurso, pero no alcanza la cantidad. Devolvemos error.
-          # Esto evita el problema de concurrencia y los inventarios negativos.
           {:reply, {:error, :inventario_insuficiente}, estado}
         end
     end
+  end
+
+  # 3. FUNCIONES PRIVADAS DE PERSISTENCIA
+
+  defp guardar_estado(estado) do
+    registros =
+      estado
+      |> Map.values()
+      |> Enum.map(&Recurso.a_registro/1)
+
+    Persistencia.guardar(:recursos, registros)
   end
 end
