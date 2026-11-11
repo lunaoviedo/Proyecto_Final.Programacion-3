@@ -15,7 +15,7 @@ defmodule Emergencias.Recursos.Albergue do
     :nombre,
     :zona,
     :capacidad_maxima,
-    ocupacion_actual: 0
+    ocupacion: []
   ]
 
   @typedoc """
@@ -27,6 +27,6 @@ defmodule Emergencias.Recursos.Albergue do
           nombre: String.t(),
           zona: String.t(),
           capacidad_maxima: non_neg_integer(),
-          ocupacion_actual: non_neg_integer()
+          ocupacion: [String.t()] # Lista de identificadores de personas o grupos alojados
         }
 end

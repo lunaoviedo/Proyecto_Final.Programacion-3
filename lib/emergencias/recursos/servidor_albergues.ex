@@ -37,9 +37,13 @@ defmodule Emergencias.Recursos.ServidorAlbergues do
   end
 
   @impl true
-  def handle_cast({:registrar, albergue}, estado) do
-    nuevo_estado = Map.put(estado, albergue.codigo, albergue)
-    {:noreply, nuevo_estado}
+  def handle_call({:registrar, albergue}, _from, estado) do
+    if Map.has_key?(estado, albergue.codigo) do
+      {:reply, {:error, :albergue_ya_existe}, estado}
+    else
+      nuevo_estado = Map.put(estado, albergue.codigo, albergue)
+      {:reply, :ok, nuevo_estado}
+    end
   end
 
   @impl true
@@ -48,23 +52,42 @@ defmodule Emergencias.Recursos.ServidorAlbergues do
   end
 
   @impl true
-  def handle_call({:ingresar, codigo, cantidad}, _from, estado) do
+  def handle_call({:ingresar, codigo, documento}, _from, estado) do
     case Map.get(estado, codigo) do
       nil ->
         {:reply, {:error, :albergue_no_encontrado}, estado}
 
       albergue ->
-        nueva_ocupacion = albergue.ocupacion_actual + cantidad
-
-        # Validamos que el ingreso no supere el límite del albergue
-        if nueva_ocupacion <= albergue.capacidad_maxima do
-          albergue_actualizado = %{albergue | ocupacion_actual: nueva_ocupacion}
-          nuevo_estado = Map.put(estado, codigo, albergue_actualizado)
-
-          {:reply, {:ok, albergue_actualizado.ocupacion_actual}, nuevo_estado}
+        if documento in albergue.ocupacion do
+          {:reply, {:error, :persona_ya_ingresada}, estado}
         else
-          # Rechazamos la petición para evitar el sobrecupo
-          {:reply, {:error, :capacidad_excedida}, estado}
+          nueva_ocupacion = length(albergue.ocupacion) + 1
+
+          if nueva_ocupacion <= albergue.capacidad_maxima do
+            albergue_actualizado = %{albergue | ocupacion: [documento | albergue.ocupacion]}
+            nuevo_estado = Map.put(estado, codigo, albergue_actualizado)
+            {:reply, {:ok, nueva_ocupacion}, nuevo_estado}
+          else
+            {:reply, {:error, :capacidad_excedida}, estado}
+          end
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:salir, codigo, documento}, _from, estado) do
+    case Map.get(estado, codigo) do
+      nil ->
+        {:reply, {:error, :albergue_no_encontrado}, estado}
+
+      albergue ->
+        if documento in albergue.ocupacion do
+          nueva_lista = List.delete(albergue.ocupacion, documento)
+          albergue_actualizado = %{albergue | ocupacion: nueva_lista}
+          nuevo_estado = Map.put(estado, codigo, albergue_actualizado)
+          {:reply, {:ok, length(nueva_lista)}, nuevo_estado}
+        else
+          {:reply, {:error, :persona_no_encontrada}, estado}
         end
     end
   end
