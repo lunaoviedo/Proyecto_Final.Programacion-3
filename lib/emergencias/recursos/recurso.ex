@@ -28,4 +28,34 @@ defmodule Emergencias.Recursos.Recurso do
           # Ej: "centro_acopio_1"
           ubicacion: String.t()
         }
+
+
+  @doc """
+  Convierte la estructura Recurso en un mapa de cadenas para la persistencia JSON.
+  """
+  def a_registro(%__MODULE__{} = recurso) do
+    %{
+      "codigo" => recurso.codigo,
+      "nombre" => recurso.nombre,
+      "categoria" => recurso.categoria,
+      "cantidad" => recurso.cantidad,
+      "unidad" => recurso.unidad,
+      "ubicacion" => recurso.ubicacion
+    }
+  end
+
+  @doc """
+  Reconstruye la estructura Recurso a partir de un mapa de cadenas cargado del disco.
+  """
+  def de_registro(mapa) do
+    %__MODULE__{
+      codigo: mapa["codigo"],
+      nombre: mapa["nombre"],
+      categoria: mapa["categoria"],
+      cantidad: mapa["cantidad"],
+      unidad: mapa["unidad"],
+      ubicacion: mapa["ubicacion"]
+    }
+  end
+  
 end
