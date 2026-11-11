@@ -266,7 +266,8 @@ defmodule Emergencias.Mascotas.Reportes do
   end
 
   defp verificar_pendiente(%Mascota{estado: :posible_coincidencia, coincidencia_con: id})
-       when is_binary(id), do: :ok
+       when is_binary(id),
+       do: :ok
 
   defp verificar_pendiente(%Mascota{estado: :resuelta}), do: {:error, :reporte_resuelto}
   defp verificar_pendiente(_mascota), do: {:error, :sin_coincidencia_pendiente}

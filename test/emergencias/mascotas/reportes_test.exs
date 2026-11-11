@@ -11,7 +11,7 @@ defmodule Emergencias.Mascotas.ReportesTest do
         id: "MA001",
         tipo: "perdida",
         especie: "Perro",
-        nombre: "Luna",
+        nombre: "Perla",
         color: "Negra",
         tamano: "mediano",
         zona: "zona_norte",
@@ -45,7 +45,7 @@ defmodule Emergencias.Mascotas.ReportesTest do
       assert mascota.tipo == :perdida
       assert mascota.especie == "perro"
       assert mascota.color == "negra"
-      assert mascota.nombre == "Luna"
+      assert mascota.nombre == "Perla"
       assert mascota.tamano == :mediano
       assert mascota.caracteristicas == ["collar rojo", "oreja caida"]
       assert mascota.estado == :activa
@@ -303,6 +303,72 @@ defmodule Emergencias.Mascotas.ReportesTest do
 
       assert {:error, :caracteristicas_invalidas} =
                Reportes.de_registro(%{registro | "caracteristicas" => "no lista"})
+    end
+
+    test "rechaza un nombre o un vínculo con tipo incorrecto" do
+      registro = Reportes.a_registro(reportes_base()["MA001"])
+
+      assert {:error, :nombre_invalido} = Reportes.de_registro(%{registro | "nombre" => 5})
+
+      assert {:error, :registro_invalido} =
+               Reportes.de_registro(%{registro | "coincidencia_con" => 7})
+    end
+
+    test "rechaza campos obligatorios que no son texto" do
+      registro = Reportes.a_registro(reportes_base()["MA001"])
+
+      assert {:error, :registro_invalido} = Reportes.de_registro(%{registro | "id" => 1})
+      assert {:error, :registro_invalido} = Reportes.de_registro(%{registro | "zona" => nil})
+      assert {:error, :registro_invalido} = Reportes.de_registro("no es un mapa")
+    end
+
+    test "acepta un registro mínimo y aplica los valores por defecto" do
+      registro = %{
+        "id" => "MA010",
+        "tipo" => "encontrada",
+        "especie" => "gato",
+        "color" => "gris",
+        "tamano" => "pequeno",
+        "zona" => "zona_sur",
+        "contacto" => "3000000000"
+      }
+
+      assert {:ok, mascota} = Reportes.de_registro(registro)
+      assert mascota.estado == :activa
+      assert mascota.caracteristicas == []
+      assert mascota.nombre == nil
+      assert mascota.coincidencia_con == nil
+    end
+  end
+
+  describe "valores con tipo inesperado" do
+    test "registrar/2 acepta tipo, tamaño y estado como átomos válidos" do
+      assert {:ok, _, %{tipo: :encontrada, tamano: :grande}} =
+               Reportes.registrar(%{}, atributos(%{tipo: :encontrada, tamano: :grande}))
+    end
+
+    test "registrar/2 rechaza tipo y tamaño que no son texto ni átomos válidos" do
+      assert {:error, :tipo_invalido} = Reportes.registrar(%{}, atributos(%{tipo: 1}))
+      assert {:error, :tipo_invalido} = Reportes.registrar(%{}, atributos(%{tipo: :otro}))
+      assert {:error, :tamano_invalido} = Reportes.registrar(%{}, atributos(%{tamano: 3}))
+      assert {:error, :id_invalido} = Reportes.registrar(%{}, atributos(%{id: 1}))
+    end
+
+    test "consultar/2 acepta filtros con átomos y rechaza valores que no son texto" do
+      assert ids(Reportes.consultar(reportes_base(), tipo: :encontrada)) == ["MA002"]
+      assert ids(Reportes.consultar(reportes_base(), estado: :activa)) |> length() == 3
+
+      assert {:error, {:filtro_invalido, :especie}} =
+               Reportes.consultar(reportes_base(), especie: 5)
+
+      assert {:error, {:filtro_invalido, :zona}} = Reportes.consultar(reportes_base(), zona: nil)
+      assert {:error, :tipo_invalido} = Reportes.consultar(reportes_base(), tipo: 9)
+      assert {:error, :estado_invalido} = Reportes.consultar(reportes_base(), estado: 9)
+    end
+
+    test "consultar/2 rechaza elementos de filtro que no son pares" do
+      assert {:error, {:filtro_invalido, :suelto}} =
+               Reportes.consultar(reportes_base(), [:suelto])
     end
   end
 end
