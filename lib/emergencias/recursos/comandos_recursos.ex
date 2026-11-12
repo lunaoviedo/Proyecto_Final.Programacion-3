@@ -13,7 +13,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
     "register_shelter" => "register_shelter codigo nombre zona capacidad",
     "register_entry" => "register_entry codigo documento",
     "register_exit" => "register_exit codigo documento",
-    "register_need" => "register_need id codigo_albergue recurso cantidad",
+    "register_need" => "register_need id tipo descripcion cantidad zona prioridad responsable",
     "list_needs" => "list_needs",
     "pending_needs" => "pending_needs",
     "check_shelter" => "check_shelter codigo",
@@ -121,26 +121,29 @@ defmodule Emergencias.Recursos.ComandosRecursos do
 
   # --- NUEVOS COMANDOS DE NECESIDADES ---
 
-  def ejecutar(sesion, "register_need", [id, codigo_albergue, recurso, cantidad_str]) do
-    con_permiso(sesion, :gestionar_necesidades, fn ->
-      case Integer.parse(cantidad_str) do
-        {cantidad, ""} when cantidad > 0 ->
+  def ejecutar(sesion, "register_need", [id, tipo, descripcion, cantidad_str, zona, prioridad_str, responsable]) do
+    con_permiso(sesion, :registrar_necesidad, fn ->
+      case {Integer.parse(cantidad_str), Integer.parse(prioridad_str)} do
+        {{cantidad, ""}, {prioridad, ""}} when cantidad > 0 ->
           necesidad = %Necesidad{
             id: id,
-            codigo_albergue: codigo_albergue,
-            recurso_requerido: recurso,
-            cantidad: cantidad
+            tipo: tipo,
+            descripcion: descripcion,
+            cantidad: cantidad,
+            zona: zona,
+            prioridad: prioridad,
+            responsable: responsable
           }
 
           case ServidorNecesidades.registrar_necesidad(necesidad) do
             :ok ->
-              {:ok, "Necesidad #{id} registrada: #{cantidad} de #{recurso} para el albergue #{codigo_albergue}.", sesion}
+              {:ok, "Necesidad #{id} registrada: #{cantidad} de #{tipo} para la zona #{zona}.", sesion}
             {:error, :necesidad_ya_existe} ->
               {:error, "Ya existe una necesidad registrada con el ID #{id}."}
           end
 
         _ ->
-          {:error, "La cantidad debe ser un número entero mayor a cero."}
+          {:error, "La cantidad y la prioridad deben ser números enteros."}
       end
     end)
   end
@@ -148,7 +151,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
   def ejecutar(_sesion, "register_need", _args), do: uso("register_need")
 
   def ejecutar(sesion, "list_needs", []) do
-    con_permiso(sesion, :ver_necesidades, fn ->
+    con_permiso(sesion, :listar_necesidades, fn ->
       necesidades = ServidorNecesidades.listar_necesidades()
       formatear_necesidades(necesidades, sesion)
     end)
@@ -157,7 +160,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
   def ejecutar(_sesion, "list_needs", _args), do: uso("list_needs")
 
   def ejecutar(sesion, "pending_needs", []) do
-    con_permiso(sesion, :ver_necesidades, fn ->
+    con_permiso(sesion, :listar_necesidades, fn ->
       pendientes = ServidorNecesidades.listar_pendientes()
       formatear_necesidades(pendientes, sesion)
     end)
@@ -246,7 +249,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
         end
 
       {:error, motivo} ->
-        {:error, "Error de autorización: #{inspect(motivo)}"}
+        {:error, Emergencias.Errores.mensaje(motivo)}
     end
   end
 
@@ -256,7 +259,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
   defp formatear_necesidades(lista, sesion) do
     lineas =
       Enum.map(lista, fn n ->
-        "- [#{n.id}] Albergue #{n.codigo_albergue} requiere #{n.cantidad} #{n.recurso_requerido} (Estado: #{n.estado})"
+        "- [#{n.id}] Zona #{n.zona} requiere #{n.cantidad} #{n.tipo} (Prioridad: #{n.prioridad}, Estado: #{n.estado})"
       end)
 
     {:ok, Enum.join(lineas, "\n"), sesion}

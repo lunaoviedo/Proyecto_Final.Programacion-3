@@ -22,6 +22,8 @@ defmodule Emergencias.Comandos do
   debe llamar a `ServidorSesiones.autorizar/2`.
   """
 
+  alias Emergencias.Errores
+  alias Emergencias.Informes
   alias Emergencias.Usuarios.ServidorSesiones
   alias Emergencias.Zonas.ServidorZonas
 
@@ -33,8 +35,43 @@ defmodule Emergencias.Comandos do
     "register_sector" => "register_sector codigo_zona codigo nombre [afectados]",
     "register_point" => "register_point codigo_sector codigo nombre [afectados]",
     "zone_status" => "zone_status codigo_zona",
-    "list_zones" => "list_zones [nivel=critico]"
+    "list_zones" => "list_zones [nivel=critico]",
+    "summary" => "summary"
   }
+
+  @ayuda """
+  Comandos disponibles (los permisos dependen del tipo de usuario):
+
+  Sesión
+    connect usuario clave tipo zona      disconnect      help      salir
+
+  Zonas
+    register_zone codigo nombre nivel [afectados]
+    register_sector codigo_zona codigo nombre [afectados]
+    register_point codigo_sector codigo nombre [afectados]
+    list_zones [nivel=critico]           zone_status codigo_zona
+
+  Recursos, albergues y necesidades
+    register_resource codigo nombre categoria cantidad unidad ubicacion
+    transfer_resource codigo nueva_ubicacion      movement_history
+    register_shelter codigo nombre zona capacidad
+    register_entry codigo documento      register_exit codigo documento
+    check_shelter codigo
+    register_need id codigo_albergue recurso cantidad
+    list_needs      pending_needs
+
+  Personas, mensajes y mascotas
+    report_person nombre documento edad zona [estado]
+    find_person [nombre=..] [documento=..] [zona=..] [estado=..]
+    update_person id estado      person_history id
+    send_family_message destinatario contenido      list_family_messages
+    report_pet tipo especie color tamano zona contacto [nombre|-] [rasgos|-]
+    list_pets [especie=..] [zona=..] [estado=..] [tipo=..]
+    match_pets      link_pets id_a id_b      confirm_match id_a id_b      discard_match id
+
+  Coordinación
+    summary
+  """
 
   @doc """
   Interpreta una línea de comandos de texto y la despacha según la sesión activa y los argumentos provistos.
@@ -63,6 +100,8 @@ defmodule Emergencias.Comandos do
 
   defp despachar(sesion, "connect", _args),
     do: {:error, "Ya hay una sesión activa (#{sesion}). Usa disconnect primero."}
+
+  defp despachar(sesion, "help", []), do: {:ok, String.trim_trailing(@ayuda), sesion}
 
   defp despachar(nil, _comando, _args),
     do: {:error, "Debes conectarte primero: connect usuario clave tipo zona"}
@@ -115,10 +154,17 @@ defmodule Emergencias.Comandos do
   defp despachar(sesion, "zone_status", [codigo]) do
     con_permiso(sesion, :consultar_zona, fn ->
       case ServidorZonas.estado_zona(codigo) do
-        {:ok, resumen} -> {:ok, formatear_resumen(resumen), sesion}
-        {:error, motivo} -> {:error, mensaje(motivo)}
+        {:ok, resumen} ->
+          {:ok, formatear_resumen(resumen) <> "\n" <> Informes.detalle_zona(codigo), sesion}
+
+        {:error, motivo} ->
+          {:error, mensaje(motivo)}
       end
     end)
+  end
+
+  defp despachar(sesion, "summary", []) do
+    con_permiso(sesion, :ver_resumen, fn -> {:ok, Informes.global(), sesion} end)
   end
 
   defp despachar(sesion, "list_zones", []),
@@ -210,24 +256,5 @@ defmodule Emergencias.Comandos do
     )
   end
 
-  defp mensaje(:credenciales_invalidas), do: "Usuario o contraseña incorrectos."
-  defp mensaje(:usuario_invalido), do: "Usuario inválido (3 a 20 letras, números o guion bajo)."
-  defp mensaje(:clave_invalida), do: "La contraseña debe tener al menos 4 caracteres."
-
-  defp mensaje(:rol_invalido),
-    do: "Tipo de usuario inválido (ciudadano, voluntario, coordinador, administrador)."
-
-  defp mensaje(:zona_invalida), do: "Zona inválida."
-  defp mensaje(:ya_conectado), do: "Ese usuario ya tiene una sesión activa."
-  defp mensaje(:no_conectado), do: "No hay una sesión activa para ese usuario."
-  defp mensaje(:no_autorizado), do: "No tienes permiso para ejecutar este comando."
-  defp mensaje(:codigo_invalido), do: "Código inválido."
-  defp mensaje(:nombre_invalido), do: "Nombre inválido."
-  defp mensaje(:nivel_invalido), do: "Nivel inválido (critico, alto, medio, bajo)."
-  defp mensaje(:afectados_invalidos), do: "El número de afectados debe ser un entero no negativo."
-  defp mensaje(:codigo_existente), do: "Ese código ya está en uso."
-  defp mensaje(:zona_no_encontrada), do: "La zona no existe."
-  defp mensaje(:sector_no_encontrado), do: "El sector no existe."
-  defp mensaje({:persistencia, motivo}), do: "No se pudo guardar: #{inspect(motivo)}"
-  defp mensaje(otro), do: "Error: #{inspect(otro)}"
+  defp mensaje(motivo), do: Errores.mensaje(motivo)
 end

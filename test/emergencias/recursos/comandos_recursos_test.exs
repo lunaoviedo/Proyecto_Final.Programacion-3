@@ -38,8 +38,8 @@ defmodule Emergencias.Recursos.ComandosRecursosTest do
     # la función privada con_permiso/3 debería atraparlo y devolver un error de autorización
     assert match?({:error, _motivo}, resultado)
 
-    # Verificamos que el mensaje mencione la autorización
+    # El motivo (:no_conectado) llega traducido por Emergencias.Errores, no como átomo crudo
     {:error, mensaje} = resultado
-    assert mensaje =~ "Error de autorización"
+assert mensaje == "Debes conectarte primero: connect usuario clave tipo zona"
   end
 end
