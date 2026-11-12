@@ -15,7 +15,8 @@ defmodule Emergencias.Recursos.ComandosRecursos do
     "register_exit" => "register_exit codigo documento",
     "register_need" => "register_need id codigo_albergue recurso cantidad",
     "list_needs" => "list_needs",
-    "pending_needs" => "pending_needs"
+    "pending_needs" => "pending_needs",
+    "check_shelter" => "check_shelter codigo"
   }
 
   def ejecutar(sesion, "register_resource", [codigo, nombre, categoria, cantidad_str, unidad, ubicacion]) do
@@ -161,6 +162,37 @@ defmodule Emergencias.Recursos.ComandosRecursos do
   end
 
   def ejecutar(_sesion, "pending_needs", _args), do: uso("pending_needs")
+
+  # --- COMANDO PARA REVISAR EL ESTADO DE UN ALBERGUE ---
+
+  def ejecutar(sesion, "check_shelter", [codigo]) do
+    con_permiso(sesion, :ver_albergues, fn ->
+      # Obtenemos todos los albergues y buscamos el que coincida con el código
+      albergues = ServidorAlbergues.obtener_albergues()
+
+      case Enum.find(albergues, fn a -> a.codigo == codigo end) do
+        nil ->
+          {:error, "El albergue con código #{codigo} no existe."}
+
+        albergue ->
+          ocupacion_actual = length(albergue.ocupacion)
+          disponible = albergue.capacidad_maxima - ocupacion_actual
+
+          mensaje = """
+          --- ESTADO DEL ALBERGUE ---
+          Nombre: #{albergue.nombre} (#{albergue.codigo})
+          Zona: #{albergue.zona}
+          Ocupación: #{ocupacion_actual} / #{albergue.capacidad_maxima}
+          Cupos disponibles: #{disponible}
+          ---------------------------
+          """ |> String.trim()
+
+          {:ok, mensaje, sesion}
+      end
+    end)
+  end
+
+  def ejecutar(_sesion, "check_shelter", _args), do: uso("check_shelter")
 
   def ejecutar(_sesion, _comando, _args), do: :no_aplica
 
