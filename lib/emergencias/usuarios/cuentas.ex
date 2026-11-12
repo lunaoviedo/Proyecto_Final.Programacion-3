@@ -27,6 +27,8 @@ defmodule Emergencias.Usuarios.Cuentas do
       :enviar_mensaje_familiar,
       :listar_mensajes_familiares,
       :reportar_mascota,
+      :gestionar_necesidades,
+      :ver_necesidades,
       :consultar_zona,
       :listar_zonas
     ],
@@ -41,7 +43,9 @@ defmodule Emergencias.Usuarios.Cuentas do
       :cotejar_mascotas,
       :registrar_ingreso,
       :registrar_salida,
-      :consultar_albergue,
+      :gestionar_necesidades,
+      :ver_necesidades,
+      :ver_albergues,
       :consultar_zona,
       :listar_zonas
     ],

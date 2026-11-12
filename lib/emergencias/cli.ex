@@ -17,7 +17,8 @@ defmodule Emergencias.CLI do
   """
   def iniciar do
     Util2.mostrar(
-      "Sistema de Coordinación de Emergencias. Escribe 'salir' para terminar.",
+      "Sistema de Coordinación de Emergencias. " <>
+        "Escribe 'help' para ver los comandos y 'salir' para terminar.",
       :mensaje
     )
 
@@ -25,10 +26,10 @@ defmodule Emergencias.CLI do
   end
 
   defp ciclo(sesion) do
-    sesion
-    |> prompt()
-    |> Util2.ingresar(:texto)
-    |> procesar(sesion)
+    case IO.gets(prompt(sesion)) do
+      linea when is_binary(linea) -> procesar(String.trim(linea), sesion)
+      _fin_de_entrada -> cerrar(sesion)
+    end
   end
 
   defp procesar("", sesion), do: ciclo(sesion)
@@ -49,10 +50,13 @@ defmodule Emergencias.CLI do
   defp prompt(nil), do: "> "
   defp prompt(usuario), do: "#{usuario}> "
 
-  defp cerrar(nil), do: :ok
+  defp cerrar(nil) do
+    Util2.mostrar("Hasta pronto.", :mensaje)
+    :ok
+  end
 
   defp cerrar(sesion) do
     ServidorSesiones.desconectar(sesion)
-    :ok
+    cerrar(nil)
   end
 end
