@@ -13,7 +13,8 @@ defmodule Emergencias.Application do
       Emergencias.Recursos.ServidorInventario,
       Emergencias.Recursos.ServidorAlbergues,
       Emergencias.Mascotas.ServidorMascotas,
-      Emergencias.Familiares.ServidorFamiliares
+      Emergencias.Familiares.ServidorFamiliares,
+      Emergencias.Recursos.ServidorNecesidades
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
