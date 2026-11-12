@@ -246,7 +246,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
         end
 
       {:error, motivo} ->
-        {:error, "Error de autorización: #{inspect(motivo)}"}
+        {:error, Emergencias.Errores.mensaje(motivo)}
     end
   end
 
