@@ -24,15 +24,17 @@ defmodule Emergencias.Comunidad.ComandosComunidad do
   ## Comandos de familiares
 
       report_person nombre documento edad zona [estado]
+      find_person documento
       find_person [nombre=..] [documento=..] [zona=..] [estado=..]
-      update_person id estado
-      person_history id
-      send_family_message destinatario contenido
-      list_family_messages
+      send_family_message documento contenido
+      list_family_messages documento
 
-  El remitente de un mensaje es siempre el usuario de la sesión, y el destinatario
-  debe ser un usuario registrado. Al listar sus mensajes, el usuario recibe los
-  pendientes, que quedan entregados.
+   El remitente de un mensaje es siempre el usuario de la sesión, y el destinatario es
+  el documento de una persona registrada con `report_person`. Al listar los mensajes
+  de un documento, los pendientes quedan entregados. Cualquier usuario con el permiso
+  `:listar_mensajes_familiares` puede consultar los mensajes de un documento.
+
+  El estado de `report_person` admite cualquier estado salvo `reunificada`.
 
   ## Permisos
 
@@ -62,8 +64,8 @@ defmodule Emergencias.Comunidad.ComandosComunidad do
     "report_person" => "report_person nombre documento edad zona [estado]",
     "update_person" => "update_person id estado",
     "person_history" => "person_history id",
-    "send_family_message" => "send_family_message destinatario contenido",
-    "list_family_messages" => "list_family_messages"
+    "send_family_message" => "send_family_message documento contenido",
+    "list_family_messages" => "list_family_messages documento"
   }
 
   @claves_mascotas %{
@@ -204,16 +206,13 @@ defmodule Emergencias.Comunidad.ComandosComunidad do
 
   def ejecutar(_sesion, "report_person", _args), do: uso("report_person")
 
-  def ejecutar(sesion, "find_person", args) do
-    con_permiso(sesion, :buscar_persona, fn ->
-      with {:ok, filtros} <- interpretar_filtros(args, @claves_personas, []),
-           {:ok, personas} <- ServidorFamiliares.consultar_personas(filtros) do
-        {:ok, listado(personas, "No se encontraron personas.", &formatear_persona/1), sesion}
-      else
-        {:error, motivo} -> {:error, mensaje(motivo)}
-      end
-    end)
+  def ejecutar(sesion, "find_person", [argumento] = args) do
+    if String.contains?(argumento, "="),
+      do: buscar_personas(sesion, args),
+      else: buscar_personas(sesion, ["documento=" <> argumento])
   end
+
+  def ejecutar(sesion, "find_person", args), do: buscar_personas(sesion, args)
 
   def ejecutar(sesion, "update_person", [id, estado]) do
     con_permiso(sesion, :reportar_persona, fn ->
@@ -242,17 +241,17 @@ defmodule Emergencias.Comunidad.ComandosComunidad do
 
   # -- Mensajes ----------------------------------------------------------------
 
-  def ejecutar(sesion, "send_family_message", [destinatario | palabras]) when palabras != [] do
+  def ejecutar(sesion, "send_family_message", [documento | palabras]) when palabras != [] do
     con_permiso(sesion, :enviar_mensaje_familiar, fn ->
-      atributos = %{
-        remitente: sesion,
-        destinatario: destinatario,
-        contenido: Enum.join(palabras, " ")
-      }
-
-      with :ok <- verificar_usuario(destinatario),
-           {:ok, enviado} <- ServidorFamiliares.enviar_mensaje(atributos) do
-        {:ok, "Mensaje #{enviado.id} enviado a #{enviado.destinatario}.", sesion}
+      with {:ok, persona} <- buscar_persona_por_documento(documento),
+           {:ok, enviado} <-
+             ServidorFamiliares.enviar_mensaje(%{
+               remitente: sesion,
+               destinatario: persona.documento,
+               contenido: Enum.join(palabras, " ")
+             }) do
+        {:ok, "Mensaje #{enviado.id} enviado a #{persona.nombre} (doc. #{persona.documento}).",
+         sesion}
       else
         {:error, motivo} -> {:error, mensaje(motivo)}
       end
@@ -261,14 +260,20 @@ defmodule Emergencias.Comunidad.ComandosComunidad do
 
   def ejecutar(_sesion, "send_family_message", _args), do: uso("send_family_message")
 
-  def ejecutar(sesion, "list_family_messages", []) do
+  def ejecutar(sesion, "list_family_messages", [documento]) do
     con_permiso(sesion, :listar_mensajes_familiares, fn ->
-      with {:ok, nuevos} <- ServidorFamiliares.entregar_pendientes(sesion),
-           {:ok, mensajes} <- ServidorFamiliares.consultar_mensajes(usuario: sesion) do
+      with {:ok, persona} <- buscar_persona_por_documento(documento),
+           {:ok, nuevos} <- ServidorFamiliares.entregar_pendientes(persona.documento),
+           {:ok, mensajes} <-
+             ServidorFamiliares.consultar_mensajes(destinatario: persona.documento) do
         ids_nuevos = MapSet.new(nuevos, & &1.id)
 
-        {:ok, listado(mensajes, "No tienes mensajes.", &formatear_mensaje(&1, ids_nuevos)),
-         sesion}
+        {:ok,
+         listado(
+           mensajes,
+           "No hay mensajes para #{persona.nombre}.",
+           &formatear_mensaje(&1, ids_nuevos)
+         ), sesion}
       else
         {:error, motivo} -> {:error, mensaje(motivo)}
       end
@@ -308,11 +313,23 @@ defmodule Emergencias.Comunidad.ComandosComunidad do
     end
   end
 
-  defp verificar_usuario(nombre) do
-    case ServidorSesiones.obtener_usuario(nombre) do
-      {:ok, _usuario} -> :ok
-      :error -> {:error, :destinatario_no_encontrado}
+  defp buscar_persona_por_documento(documento) do
+    case ServidorFamiliares.consultar_personas(documento: documento) do
+      {:ok, [persona]} -> {:ok, persona}
+      {:ok, []} -> {:error, :persona_no_encontrada}
+      {:error, motivo} -> {:error, motivo}
     end
+  end
+
+  defp buscar_personas(sesion, argumentos) do
+    con_permiso(sesion, :buscar_persona, fn ->
+      with {:ok, filtros} <- interpretar_filtros(argumentos, @claves_personas, []),
+           {:ok, personas} <- ServidorFamiliares.consultar_personas(filtros) do
+        {:ok, listado(personas, "No se encontraron personas.", &formatear_persona/1), sesion}
+      else
+        {:error, motivo} -> {:error, mensaje(motivo)}
+      end
+    end)
   end
 
   # -- Interpretación de argumentos --------------------------------------------
@@ -418,7 +435,6 @@ defmodule Emergencias.Comunidad.ComandosComunidad do
   defp mensaje(:no_autorizado), do: "No tienes permiso para ejecutar este comando."
   defp mensaje(:no_conectado), do: "Debes conectarte primero: connect usuario clave tipo zona"
   defp mensaje(:zona_no_encontrada), do: "La zona no existe."
-  defp mensaje(:destinatario_no_encontrado), do: "El destinatario no es un usuario registrado."
   defp mensaje(:atributos_invalidos), do: "Los datos del comando no son válidos."
   defp mensaje(:filtros_invalidos), do: "Los filtros no son válidos."
   defp mensaje({:filtro_invalido, filtro}), do: "Filtro inválido: #{filtro}"
@@ -452,7 +468,7 @@ defmodule Emergencias.Comunidad.ComandosComunidad do
   defp mensaje(:estado_invalido), do: "Estado inválido."
 
   defp mensaje(:estado_inicial_invalido),
-    do: "El estado inicial debe ser reportada o sin_informacion."
+    do: "Una persona no puede registrarse como reunificada."
 
   defp mensaje(:persona_no_encontrada), do: "La persona no existe."
   defp mensaje(:persona_reunificada), do: "El caso de la persona ya está cerrado (reunificada)."
