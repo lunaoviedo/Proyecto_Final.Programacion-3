@@ -30,7 +30,9 @@ defmodule Emergencias.Familiares.ServidorFamiliaresTest do
     Map.merge(
       %{
         nombre: "Ana Gómez",
-        documento: "DOC#{System.unique_integer([:positive])}",
+        documento:
+          "DOC" <>
+            String.pad_leading(Integer.to_string(System.unique_integer([:positive])), 8, "0"),
         edad: 34,
         zona: "zona_norte"
       },
@@ -87,7 +89,7 @@ defmodule Emergencias.Familiares.ServidorFamiliaresTest do
                ServidorFamiliares.registrar_persona(persona(%{edad: 121}), s)
 
       assert {:error, :estado_inicial_invalido} =
-               ServidorFamiliares.registrar_persona(persona(%{estado: :localizada}), s)
+               ServidorFamiliares.registrar_persona(persona(%{estado: :reunificada}), s)
 
       assert {:error, :atributos_invalidos} = ServidorFamiliares.registrar_persona("texto", s)
       assert {:error, :atributos_invalidos} = ServidorFamiliares.registrar_persona(nil, s)

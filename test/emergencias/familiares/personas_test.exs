@@ -134,7 +134,7 @@ defmodule Emergencias.Familiares.PersonasTest do
       end
     end
 
-    test "rechaza estados iniciales inexistentes o que suponen avance" do
+    test "rechaza estados iniciales inexistentes o un caso ya cerrado" do
       assert {:error, :estado_invalido} =
                Personas.registrar(%{}, atributos(%{estado: "perdida"}), @t0)
 
@@ -142,7 +142,21 @@ defmodule Emergencias.Familiares.PersonasTest do
                Personas.registrar(%{}, atributos(%{estado: :reunificada}), @t0)
 
       assert {:error, :estado_inicial_invalido} =
-               Personas.registrar(%{}, atributos(%{estado: "en_albergue"}), @t0)
+               Personas.registrar(%{}, atributos(%{estado: "reunificada"}), @t0)
+    end
+
+    test "acepta como estado inicial cualquier estado salvo reunificada" do
+      for {entrada, esperado} <- [
+            {:sin_informacion, :sin_informacion},
+            {:reportada, :reportada},
+            {:localizada, :localizada},
+            {:trasladada, :trasladada},
+            {"en_albergue", :en_albergue}
+          ] do
+        assert {:ok, _, persona} = Personas.registrar(%{}, atributos(%{estado: entrada}), @t0)
+        assert persona.estado == esperado
+        assert [%{estado: ^esperado}] = persona.historial
+      end
     end
 
     test "un registro rechazado no modifica la colección" do

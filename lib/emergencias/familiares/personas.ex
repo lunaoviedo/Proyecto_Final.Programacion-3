@@ -12,8 +12,9 @@ defmodule Emergencias.Familiares.Personas do
 
   ## Estados y transiciones
 
-  Una persona se registra como `:reportada` o, si solo se sabe que se la busca,
-  como `:sin_informacion`. Los cambios permitidos son:
+  Una persona puede registrarse en cualquier estado salvo `:reunificada`, que es
+  final: un caso no puede nacer cerrado. Por defecto se registra como `:reportada`.
+  Los cambios permitidos son:
 
       sin_informacion -> reportada | localizada
       reportada       -> localizada
@@ -53,7 +54,7 @@ defmodule Emergencias.Familiares.Personas do
     reunificada: []
   }
 
-  @estados_iniciales [:sin_informacion, :reportada]
+  @estados_iniciales [:sin_informacion, :reportada, :localizada, :trasladada, :en_albergue]
   @edad_maxima 120
 
   # -- Registro ----------------------------------------------------------------
@@ -62,8 +63,8 @@ defmodule Emergencias.Familiares.Personas do
   Registra una persona nueva y anota su estado inicial en el historial.
 
   `atributos` es un mapa con las claves `:id`, `:nombre`, `:documento`, `:edad`,
-  `:zona` y, opcionalmente, `:estado` (`:reportada` por defecto, o
-  `:sin_informacion`). El documento admite de 5 a 15 letras o dígitos y se guarda en
+  `:zona` y, opcionalmente, `:estado (:reportada por defecto; admite cualquier estado salvo :reunificada).
+   El documento admite de 5 a 15 letras o dígitos y se guarda en
   mayúsculas. La edad admite un entero entre 0 y 120 o su texto equivalente.
   """
   @spec registrar(personas(), map(), DateTime.t()) ::
