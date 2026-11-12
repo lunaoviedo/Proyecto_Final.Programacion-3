@@ -8,7 +8,7 @@ defmodule Emergencias.Familiares.Mensajes do
   corresponden al servidor de familiares.
 
   Esta capa solo valida el formato del remitente y del destinatario; comprobar que
-  el destinatario sea un usuario existente corresponde a quien invoca.
+  el destinatario sea el documento de una persona registrada corresponde a quien invoca.
 
   ## Estados y transiciones
 

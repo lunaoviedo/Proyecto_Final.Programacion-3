@@ -42,6 +42,13 @@ defmodule Emergencias.Comunidad.ComandosComunidadTest do
     identificador(mensaje, ~r/MA\d+/)
   end
 
+  # Registra una persona y retorna su documento, que es el destinatario de los mensajes.
+  defp persona_registrada(sesion, zona) do
+    doc = documento()
+    {:ok, _, _} = Comandos.ejecutar(sesion, "report_person Andres #{doc} 28 #{zona} localizada")
+    doc
+  end
+
   describe "report_pet y list_pets" do
     test "registra un reporte y lo consulta por zona, especie y estado" do
       coordinador = conectar("coordinador")
@@ -294,10 +301,10 @@ defmodule Emergencias.Comunidad.ComandosComunidadTest do
       assert {:error, "Documento inválido" <> _} =
                Comandos.ejecutar(coordinador, "report_person Ana 12 30 #{zona}")
 
-      assert {:error, "El estado inicial" <> _} =
+      assert {:error, "Una persona no puede registrarse como reunificada."} =
                Comandos.ejecutar(
                  coordinador,
-                 "report_person Ana #{documento()} 30 #{zona} localizada"
+                 "report_person Ana #{documento()} 30 #{zona} reunificada"
                )
 
       assert {:error, "La zona no existe."} =
@@ -305,6 +312,24 @@ defmodule Emergencias.Comunidad.ComandosComunidadTest do
 
       assert {:error, "Uso: report_person" <> _} =
                Comandos.ejecutar(coordinador, "report_person Ana")
+    end
+
+    test "registra directamente a una persona como localizada y la busca por documento" do
+      coordinador = conectar("coordinador")
+      zona = crear_zona(coordinador)
+      doc = documento()
+
+      assert {:ok, mensaje, _} =
+               Comandos.ejecutar(coordinador, "report_person Andres #{doc} 28 #{zona} localizada")
+
+      assert mensaje =~ "localizada"
+
+      assert {:ok, listado, _} = Comandos.ejecutar(coordinador, "find_person #{doc}")
+      assert listado =~ "Andres"
+      assert listado =~ "localizada"
+
+      assert {:ok, "No se encontraron personas.", _} =
+               Comandos.ejecutar(coordinador, "find_person NOEXISTE1")
     end
 
     test "no admite dos personas con el mismo documento" do
@@ -358,68 +383,74 @@ defmodule Emergencias.Comunidad.ComandosComunidadTest do
   end
 
   describe "mensajes entre familiares" do
-    test "envía un mensaje y lo entrega al listarlo" do
-      emisor = conectar("ciudadano")
-      receptor = conectar("ciudadano")
+    test "envía un mensaje a un documento y lo entrega al listarlo" do
+      coordinador = conectar("coordinador")
+      zona = crear_zona(coordinador)
+      doc = persona_registrada(coordinador, zona)
+      familiar = conectar("ciudadano")
 
-      assert {:ok, mensaje, ^emisor} =
+      assert {:ok, mensaje, ^familiar} =
                Comandos.ejecutar(
-                 emisor,
-                 "send_family_message #{receptor} Estoy bien en el albergue"
+                 familiar,
+                 ~s(send_family_message #{doc} "Estoy bien, estoy en el albergue norte")
                )
 
-      assert mensaje =~ "enviado a #{receptor}"
+      assert mensaje =~ "enviado a Andres"
       id = identificador(mensaje, ~r/ME\d+/)
 
-      assert {:ok, enviados, _} = Comandos.ejecutar(emisor, "list_family_messages")
-      assert enviados =~ "#{id}"
-      assert enviados =~ "(pendiente)"
-
-      assert {:ok, recibidos, _} = Comandos.ejecutar(receptor, "list_family_messages")
-      assert recibidos =~ "Estoy bien en el albergue"
-      assert recibidos =~ "#{emisor} -> #{receptor}"
+      assert {:ok, recibidos, _} = Comandos.ejecutar(coordinador, "list_family_messages #{doc}")
+      assert recibidos =~ id
+      assert recibidos =~ "Estoy bien, estoy en el albergue norte"
+      assert recibidos =~ "#{familiar} -> #{doc}"
       assert recibidos =~ "(nuevo)"
 
-      assert {:ok, otra_vez, _} = Comandos.ejecutar(receptor, "list_family_messages")
+      assert {:ok, otra_vez, _} = Comandos.ejecutar(coordinador, "list_family_messages #{doc}")
       refute otra_vez =~ "(nuevo)"
       assert otra_vez =~ "(entregado)"
     end
 
-    test "un usuario sin mensajes recibe un aviso" do
-      usuario = conectar("ciudadano")
+    test "un documento sin mensajes recibe un aviso" do
+      coordinador = conectar("coordinador")
+      zona = crear_zona(coordinador)
+      doc = persona_registrada(coordinador, zona)
 
-      assert {:ok, "No tienes mensajes.", ^usuario} =
-               Comandos.ejecutar(usuario, "list_family_messages")
+      assert {:ok, "No hay mensajes para Andres.", ^coordinador} =
+               Comandos.ejecutar(coordinador, "list_family_messages #{doc}")
     end
 
-    test "rechaza destinatarios y contenidos inválidos" do
-      emisor = conectar("ciudadano")
-      receptor = conectar("ciudadano")
+    test "rechaza documentos desconocidos y contenidos inválidos" do
+      coordinador = conectar("coordinador")
+      zona = crear_zona(coordinador)
+      doc = persona_registrada(coordinador, zona)
 
-      assert {:error, "El destinatario no es un usuario registrado."} =
-               Comandos.ejecutar(emisor, "send_family_message #{unico("x")} Hola")
+      assert {:error, "La persona no existe."} =
+               Comandos.ejecutar(coordinador, "send_family_message NOEXISTE1 Hola")
 
-      assert {:error, "No puedes enviarte un mensaje a ti mismo."} =
-               Comandos.ejecutar(emisor, "send_family_message #{emisor} Hola")
+      assert {:error, "La persona no existe."} =
+               Comandos.ejecutar(coordinador, "list_family_messages NOEXISTE1")
 
-      assert {:error, "Uso: send_family_message destinatario contenido"} =
-               Comandos.ejecutar(emisor, "send_family_message #{receptor}")
+      assert {:error, "Uso: send_family_message documento contenido"} =
+               Comandos.ejecutar(coordinador, "send_family_message #{doc}")
+
+      assert {:error, "Uso: list_family_messages documento"} =
+               Comandos.ejecutar(coordinador, "list_family_messages")
 
       assert {:error, "El mensaje supera los 500 caracteres."} =
                Comandos.ejecutar(
-                 emisor,
-                 "send_family_message #{receptor} #{String.duplicate("a", 501)}"
+                 coordinador,
+                 "send_family_message #{doc} #{String.duplicate("a", 501)}"
                )
     end
 
     test "acepta un mensaje de exactamente 500 caracteres" do
-      emisor = conectar("ciudadano")
-      receptor = conectar("ciudadano")
+      coordinador = conectar("coordinador")
+      zona = crear_zona(coordinador)
+      doc = persona_registrada(coordinador, zona)
 
       assert {:ok, _, _} =
                Comandos.ejecutar(
-                 emisor,
-                 "send_family_message #{receptor} #{String.duplicate("a", 500)}"
+                 coordinador,
+                 "send_family_message #{doc} #{String.duplicate("a", 500)}"
                )
     end
   end
@@ -427,7 +458,7 @@ defmodule Emergencias.Comunidad.ComandosComunidadTest do
   describe "ejecutar/3" do
     test "sin sesión activa pide conectarse" do
       assert {:error, "Debes conectarte primero" <> _} =
-               ComandosComunidad.ejecutar(nil, "list_family_messages", [])
+               ComandosComunidad.ejecutar(nil, "list_family_messages", ["DOC12345"])
     end
 
     test "retorna :no_aplica para comandos de otros módulos" do
