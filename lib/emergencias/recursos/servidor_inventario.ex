@@ -22,6 +22,18 @@ defmodule Emergencias.Recursos.ServidorInventario do
     GenServer.call(__MODULE__, :obtener_todos)
   end
 
+  def transferir_recurso(codigo, nueva_ubicacion) do
+    GenServer.call(__MODULE__, {:transferir, codigo, nueva_ubicacion})
+  end
+
+  def obtener_historial_movimientos() do
+    # Leemos directamente del archivo de bitácora
+    case Persistencia.cargar(:movimientos) do
+      {:ok, registros} -> registros
+      _ -> []
+    end
+  end
+
   @doc """
   Intenta descontar una cantidad específica de un recurso.
   Retorna {:ok, cantidad_restante} si hay éxito, o {:error, razon} si falla.
@@ -84,6 +96,34 @@ defmodule Emergencias.Recursos.ServidorInventario do
         else
           {:reply, {:error, :inventario_insuficiente}, estado}
         end
+    end
+  end
+
+  @impl true
+  def handle_call({:transferir, codigo, nueva_ubicacion}, _from, estado) do
+    case Map.get(estado, codigo) do
+      nil ->
+        {:reply, {:error, :recurso_no_encontrado}, estado}
+
+      recurso ->
+        ubicacion_anterior = recurso.ubicacion
+        recurso_actualizado = %{recurso | ubicacion: nueva_ubicacion}
+        nuevo_estado = Map.put(estado, codigo, recurso_actualizado)
+
+        # Guardamos el inventario actualizado
+        guardar_estado(nuevo_estado)
+
+        # Registramos el movimiento en el historial (archivo append-only)
+        movimiento = %{
+          "fecha" => DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_string(),
+          "accion" => "Transferencia",
+          "codigo_recurso" => codigo,
+          "origen" => ubicacion_anterior,
+          "destino" => nueva_ubicacion
+        }
+        Persistencia.agregar(:movimientos, movimiento)
+
+        {:reply, :ok, nuevo_estado}
     end
   end
 

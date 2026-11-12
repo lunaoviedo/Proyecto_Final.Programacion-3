@@ -16,7 +16,9 @@ defmodule Emergencias.Recursos.ComandosRecursos do
     "register_need" => "register_need id codigo_albergue recurso cantidad",
     "list_needs" => "list_needs",
     "pending_needs" => "pending_needs",
-    "check_shelter" => "check_shelter codigo"
+    "check_shelter" => "check_shelter codigo",
+    "transfer_resource" => "transfer_resource codigo nueva_ubicacion",
+    "movement_history" => "movement_history"
   }
 
   def ejecutar(sesion, "register_resource", [codigo, nombre, categoria, cantidad_str, unidad, ubicacion]) do
@@ -193,6 +195,39 @@ defmodule Emergencias.Recursos.ComandosRecursos do
   end
 
   def ejecutar(_sesion, "check_shelter", _args), do: uso("check_shelter")
+
+  # --- TRANSFERENCIAS E HISTORIAL ---
+
+  def ejecutar(sesion, "transfer_resource", [codigo, nueva_ubicacion]) do
+    con_permiso(sesion, :transferir_recursos, fn ->
+      case ServidorInventario.transferir_recurso(codigo, nueva_ubicacion) do
+        :ok ->
+          {:ok, "Recurso #{codigo} transferido exitosamente a #{nueva_ubicacion}.", sesion}
+        {:error, :recurso_no_encontrado} ->
+          {:error, "El recurso con código #{codigo} no existe en el inventario."}
+      end
+    end)
+  end
+
+  def ejecutar(_sesion, "transfer_resource", _args), do: uso("transfer_resource")
+
+  def ejecutar(sesion, "movement_history", []) do
+    con_permiso(sesion, :ver_movimientos, fn ->
+      movimientos = ServidorInventario.obtener_historial_movimientos()
+
+      if movimientos == [] do
+        {:ok, "No hay movimientos registrados en el historial.", sesion}
+      else
+        lineas = Enum.map(movimientos, fn m ->
+          "#{m["fecha"]} | #{m["accion"]} | Recurso: #{m["codigo_recurso"]} | De: #{m["origen"]} -> A: #{m["destino"]}"
+        end)
+
+        {:ok, "--- HISTORIAL DE MOVIMIENTOS ---\n" <> Enum.join(lineas, "\n"), sesion}
+      end
+    end)
+  end
+
+  def ejecutar(_sesion, "movement_history", _args), do: uso("movement_history")
 
   def ejecutar(_sesion, _comando, _args), do: :no_aplica
 
