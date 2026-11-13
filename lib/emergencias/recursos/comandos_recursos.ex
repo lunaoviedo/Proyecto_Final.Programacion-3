@@ -17,7 +17,9 @@ defmodule Emergencias.Recursos.ComandosRecursos do
     "list_needs" => "list_needs [zona:X] [tipo:Y] [prioridad:Z] [estado:W]",
     "pending_needs" => "pending_needs",
     "check_shelter" => "check_shelter codigo",
-    "transfer_resource" => "transfer_resource codigo nueva_ubicacion",
+    "transfer_resource" => "transfer_resource codigo_origen codigo_destino cantidad",
+    "list_resources" => "list_resources [tipo:X] [zona:Y]",
+    "critical_resources" => "critical_resources [umbral_opcional]",
     "movement_history" => "movement_history",
     "assign_resource" => "assign_resource id_necesidad codigo_recurso cantidad"
   }
@@ -117,7 +119,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
 
   def ejecutar(_sesion, "register_exit", _args), do: uso("register_exit")
 
-  # --- NUEVOS COMANDOS DE NECESIDADES ---
+  # --- NECESIDADES ---
 
   def ejecutar(sesion, "register_need", [id, tipo, descripcion, cantidad_str, zona, prioridad_str, responsable]) do
     con_permiso(sesion, :registrar_necesidad, fn ->
@@ -205,7 +207,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
 
   def ejecutar(_sesion, "assign_resource", _args), do: uso("assign_resource")
 
-  # --- COMANDO PARA REVISAR EL ESTADO DE UN ALBERGUE ---
+  # --- ALBERGUES ---
 
   def ejecutar(sesion, "check_shelter", [codigo]) do
     con_permiso(sesion, :ver_albergues, fn ->
@@ -235,15 +237,75 @@ defmodule Emergencias.Recursos.ComandosRecursos do
 
   def ejecutar(_sesion, "check_shelter", _args), do: uso("check_shelter")
 
-  # --- TRANSFERENCIAS E HISTORIAL ---
+  # --- NUEVOS COMANDOS DE INVENTARIO: LISTAR, CRÍTICOS Y TRANSFERENCIAS ---
 
-  def ejecutar(sesion, "transfer_resource", [codigo, nueva_ubicacion]) do
+  def ejecutar(sesion, "list_resources", args) do
+    con_permiso(sesion, :ver_movimientos, fn ->
+      filtros =
+        Enum.reduce(args, %{}, fn arg, acc ->
+          case String.split(arg, ":") do
+            [clave, valor] -> Map.put(acc, String.to_atom(clave), valor)
+            _ -> acc
+          end
+        end)
+
+      recursos = ServidorInventario.listar_recursos(filtros)
+
+      if recursos == [] do
+        {:ok, "No se encontraron recursos con esos filtros.", sesion}
+      else
+        lineas = Enum.map(recursos, fn r ->
+          "- [#{r.codigo}] #{r.nombre} (Categoría: #{r.categoria}, Zona: #{r.ubicacion}) -> #{r.cantidad} #{r.unidad}"
+        end)
+        {:ok, "--- INVENTARIO DE RECURSOS ---\n" <> Enum.join(lineas, "\n"), sesion}
+      end
+    end)
+  end
+
+  def ejecutar(_sesion, "list_resources", _args), do: uso("list_resources")
+
+  def ejecutar(sesion, "critical_resources", args) do
+    con_permiso(sesion, :ver_movimientos, fn ->
+      umbral = case args do
+        [val] ->
+          case Integer.parse(val) do
+            {num, ""} -> num
+            _ -> 10
+          end
+        [] -> 10
+      end
+
+      criticos = ServidorInventario.recursos_criticos(umbral)
+
+      if criticos == [] do
+        {:ok, "No hay recursos en estado crítico (umbral: #{umbral}).", sesion}
+      else
+        lineas = Enum.map(criticos, fn r ->
+          "⚠️ [#{r.codigo}] #{r.nombre} en #{r.ubicacion}: SOLO QUEDAN #{r.cantidad} #{r.unidad}"
+        end)
+        {:ok, "--- RECURSOS CRÍTICOS ---\n" <> Enum.join(lineas, "\n"), sesion}
+      end
+    end)
+  end
+
+  def ejecutar(_sesion, "critical_resources", _args), do: uso("critical_resources")
+
+  def ejecutar(sesion, "transfer_resource", [codigo_origen, codigo_destino, cantidad_str]) do
     con_permiso(sesion, :transferir_recursos, fn ->
-      case ServidorInventario.transferir_recurso(codigo, nueva_ubicacion) do
-        :ok ->
-          {:ok, "Recurso #{codigo} transferido exitosamente a #{nueva_ubicacion}.", sesion}
-        {:error, :recurso_no_encontrado} ->
-          {:error, "El recurso con código #{codigo} no existe en el inventario."}
+      case Integer.parse(cantidad_str) do
+        {cantidad, ""} when cantidad > 0 ->
+          case ServidorInventario.transferir_recurso(codigo_origen, codigo_destino, cantidad) do
+            :ok ->
+              {:ok, "Se transfirieron #{cantidad} unidades del recurso #{codigo_origen} al #{codigo_destino}.", sesion}
+            {:error, :origen_no_encontrado} ->
+              {:error, "El recurso origen #{codigo_origen} no existe."}
+            {:error, :destino_no_encontrado} ->
+              {:error, "El recurso destino #{codigo_destino} no existe."}
+            {:error, :stock_insuficiente} ->
+              {:error, "Stock insuficiente en el recurso origen #{codigo_origen} para transferir #{cantidad}."}
+          end
+        _ ->
+          {:error, "La cantidad a transferir debe ser un número entero positivo."}
       end
     end)
   end
@@ -258,7 +320,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
         {:ok, "No hay movimientos registrados en el historial.", sesion}
       else
         lineas = Enum.map(movimientos, fn m ->
-          "#{m["fecha"]} | #{m["accion"]} | Recurso: #{m["codigo_recurso"]} | De: #{m["origen"]} -> A: #{m["destino"]}"
+          "#{m["fecha"]} | #{m["accion"]} | Recurso: #{m["codigo_recurso"]} | Cantidad: #{m["cantidad"]} | De: #{m["origen"]} -> A: #{m["destino"]}"
         end)
 
         {:ok, "--- HISTORIAL DE MOVIMIENTOS ---\n" <> Enum.join(lineas, "\n"), sesion}
