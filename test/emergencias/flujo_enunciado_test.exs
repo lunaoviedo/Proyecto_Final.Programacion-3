@@ -1,8 +1,9 @@
 defmodule Emergencias.FlujoEnunciadoTest do
   @moduledoc """
   Prueba de integración del flujo de ejemplo del enunciado: todo se ejecuta con
-  comandos de texto sobre los servidores reales, salvo la asignación de recursos
-  (aún sin comando), que se invoca directamente en el servidor de inventario.
+  comandos de texto sobre los servidores reales, salvo el conflicto concurrente
+  de asignación de recursos, que se provoca directamente sobre el servidor de
+  inventario (`ServidorInventario.descontar_recurso/2`).
   """
 
   use ExUnit.Case, async: false
@@ -47,23 +48,30 @@ defmodule Emergencias.FlujoEnunciadoTest do
     ok!(laura, "register_resource #{recurso} Agua agua 50 litros #{albergue}")
 
     # --- Laura (30 L) y un voluntario (25 L) registran necesidades sobre el agua ---
-    ok!(laura, "register_need n1#{s} #{albergue} agua 30")
+    ok!(laura, ~s(register_need n1#{s} agua "Agua potable" 30 #{zona} 1 #{laura}))
     {_, voluntario} = ok!(nil, "connect #{voluntario} 1234 voluntario #{zona}")
-    ok!(voluntario, "register_need n2#{s} #{albergue} agua 25")
+    ok!(voluntario, ~s(register_need n2#{s} agua "Agua potable" 25 #{zona} 2 #{voluntario}))
 
     # --- Conflicto concurrente: 30 + 25 = 55 > 50, solo una asignación puede confirmarse ---
+    cantidades = [30, 25]
+
     resultados =
-      [30, 25]
+      cantidades
       |> Enum.map(fn cantidad ->
-        Task.async(fn -> ServidorInventario.asignar_recurso(recurso, cantidad) end)
+        Task.async(fn -> ServidorInventario.descontar_recurso(recurso, cantidad) end)
       end)
       |> Task.await_many()
 
-    assert [{:ok, restante}] = Enum.filter(resultados, &match?({:ok, _}, &1))
-    assert Enum.count(resultados, &(&1 == {:error, :inventario_insuficiente})) == 1
+    # descontar_recurso/2 devuelve :ok (sin el restante): se deduce de lo descontado
+    assert [{descontado, :ok}] =
+             cantidades |> Enum.zip(resultados) |> Enum.filter(&match?({_, :ok}, &1))
+
+    assert Enum.count(resultados, &(&1 == {:error, :stock_insuficiente})) == 1
+
+    restante = 50 - descontado
     assert restante in [20, 25]
 
-    inventario = Enum.find(ServidorInventario.obtener_inventario(), &(&1.codigo == recurso))
+    inventario = Enum.find(ServidorInventario.listar_recursos(), &(&1.codigo == recurso))
     assert inventario.cantidad == restante
 
     # --- Un ciudadano registra a Andrés como persona localizada en el albergue ---
@@ -79,15 +87,15 @@ defmodule Emergencias.FlujoEnunciadoTest do
     {msg, _} = ok!(voluntario, "check_shelter #{albergue}")
     assert msg =~ "Ocupación: 1 / 150"
 
-    # --- Un familiar deja un mensaje para Andrés, que lo recibe ---
+    # --- Un familiar deja un mensaje para Andrés (por su documento), que lo recibe ---
     {_, familiar_sesion} = ok!(nil, "connect #{familiar} 1234 ciudadano #{zona}")
 
     ok!(
       familiar_sesion,
-      ~s(send_family_message #{andres} "Te estamos buscando, avisa cuando puedas")
+      ~s(send_family_message #{documento} "Te estamos buscando, avisa cuando puedas")
     )
 
-    {msg, _} = ok!(andres_sesion, "list_family_messages")
+    {msg, _} = ok!(andres_sesion, "list_family_messages #{documento}")
     assert msg =~ "Te estamos buscando"
     assert msg =~ "(nuevo)"
 
@@ -109,6 +117,7 @@ defmodule Emergencias.FlujoEnunciadoTest do
     # --- Laura consulta el resumen global ---
     {resumen, _} = ok!(laura, "summary")
     assert resumen =~ "RESUMEN GLOBAL"
+    assert resumen =~ "Albergues más ocupados"
     assert resumen =~ "Agua (#{recurso}): #{restante} litros en #{albergue}"
     assert resumen =~ "pendientes"
     assert resumen =~ "Personas localizadas"
