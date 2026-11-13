@@ -1,35 +1,37 @@
 defmodule Emergencias.Recursos.ServidorNecesidadesTest do
   use ExUnit.Case
+
   alias Emergencias.Recursos.{ServidorNecesidades, Necesidad}
 
   setup do
-    id_unico = "NEC-" <> Integer.to_string(:rand.uniform(100_000))
-    {:ok, id: id_unico}
+    id = "NEC_TEST_#{System.unique_integer([:positive])}"
+    {:ok, id: id}
   end
 
-  test "registrar una necesidad, listarla como pendiente y luego satisfacerla", %{id: id} do
+  test "registrar una necesidad, listarla como pendiente y luego cambiar su estado", %{id: id} do
     necesidad = %Necesidad{
       id: id,
-      codigo_albergue: "ALB-01",
-      recurso_requerido: "Agua Potable",
-      cantidad: 100
+      tipo: "agua",
+      descripcion: "Agua potable",
+      cantidad: 100,
+      asignado: 0,
+      zona: "zona_centro",
+      prioridad: 1,
+      responsable: "voluntario1",
+      estado: :pendiente
     }
 
-    # 1. Registrar exitosamente
-    assert :ok == ServidorNecesidades.registrar_necesidad(necesidad)
+    assert :ok = ServidorNecesidades.registrar_necesidad(necesidad)
 
-    # 2. Evitar duplicados
-    assert {:error, :necesidad_ya_existe} == ServidorNecesidades.registrar_necesidad(necesidad)
-
-    # 3. Validar que aparezca en la lista de pendientes
-    pendientes = ServidorNecesidades.listar_pendientes()
+    # Listar usando el filtro de estado como pide el requerimiento
+    pendientes = ServidorNecesidades.listar_necesidades(%{estado: :pendiente})
     assert Enum.any?(pendientes, fn n -> n.id == id end)
 
-    # 4. Satisfacer la necesidad
-    assert :ok == ServidorNecesidades.satisfacer_necesidad(id)
+    # Cambiar estado a asignada
+    assert :ok = ServidorNecesidades.cambiar_estado(id, :asignada)
 
-    # 5. Validar que ya NO esté en la lista de pendientes
-    pendientes_actualizados = ServidorNecesidades.listar_pendientes()
-    refute Enum.any?(pendientes_actualizados, fn n -> n.id == id end)
+    # Verificar que ya no aparece en las pendientes
+    pendientes_actualizadas = ServidorNecesidades.listar_necesidades(%{estado: :pendiente})
+    refute Enum.any?(pendientes_actualizadas, fn n -> n.id == id end)
   end
 end

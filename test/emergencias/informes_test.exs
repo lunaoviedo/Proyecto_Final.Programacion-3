@@ -71,23 +71,26 @@ defmodule Emergencias.InformesTest do
       necesidades: [
         %Necesidad{
           id: "N1",
-          codigo_albergue: "A1",
-          recurso_requerido: "agua",
+          zona: "zona_centro",
+          tipo: "agua",
           cantidad: 30,
+          asignado: 0,
           estado: :pendiente
         },
         %Necesidad{
           id: "N2",
-          codigo_albergue: "A1",
-          recurso_requerido: "agua",
+          zona: "zona_sur",
+          tipo: "agua",
           cantidad: 25,
-          estado: :satisfecha
+          asignado: 0,
+          estado: :atendida
         },
         %Necesidad{
           id: "N3",
-          codigo_albergue: "A2",
-          recurso_requerido: "mantas",
+          zona: "zona_norte",
+          tipo: "mantas",
           cantidad: 10,
+          asignado: 0,
           estado: :pendiente
         }
       ],

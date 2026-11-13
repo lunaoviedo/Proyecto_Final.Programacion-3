@@ -29,22 +29,25 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
   def init(_estado_inicial) do
     case Persistencia.cargar(:necesidades) do
       {:ok, registros} ->
-        estado =
-          Enum.reduce(registros, %{}, fn reg, acc ->
-            necesidad = Necesidad.de_registro(reg)
-            Map.put(acc, necesidad.id, necesidad)
-          end)
-        {:ok, estado}
+        # Procesamos los registros deteniéndonos si hay un estado corrupto (Punto 8)
+        resultado = Enum.reduce_while(registros, {:ok, %{}}, fn reg, {:ok, acc} ->
+          case Necesidad.de_registro(reg) do
+            {:ok, necesidad} -> {:cont, {:ok, Map.put(acc, necesidad.id, necesidad)}}
+            {:error, motivo} -> {:halt, {:error, motivo}}
+          end
+        end)
 
-      {:error, :archivo_no_existe} ->
-        # Es válido empezar vacío si el archivo aún no se ha creado
-        {:ok, %{}}
+        case resultado do
+          {:ok, estado} -> {:ok, estado}
+          {:error, motivo} -> {:stop, {:persistencia_corrupta, motivo}}
+        end
 
-      {:error, motivo} ->
-        # Fail-fast: detenemos el servidor para no sobrescribir datos valiosos con %{}
-        {:stop, {:persistencia_corrupta, motivo}}
+      {:error, :archivo_no_existe} -> {:ok, %{}}
+      {:error, motivo} -> {:stop, {:persistencia_corrupta, motivo}}
     end
   end
+
+
 
   @impl true
   def handle_call({:registrar, necesidad}, _from, estado) do
@@ -100,13 +103,10 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
     Persistencia.guardar(:necesidades, registros)
   end
 
-  defp transicion_valida?(actual, nuevo) when actual == nuevo, do: true
-  defp transicion_valida?(:pendiente, :evaluada), do: true
-  defp transicion_valida?(:pendiente, :cancelada), do: true
-  defp transicion_valida?(:evaluada, :asignada), do: true
-  defp transicion_valida?(:evaluada, :cancelada), do: true
-  defp transicion_valida?(:asignada, :atendida), do: true
-  defp transicion_valida?(:asignada, :cancelada), do: true
+  defp transicion_valida?(:pendiente, :asignada), do: true
+  defp transicion_valida?(:asignada, :en_atencion), do: true
+  defp transicion_valida?(:en_atencion, :atendida), do: true
+  defp transicion_valida?(estado_actual, :cancelada) when estado_actual not in [:atendida, :cancelada], do: true
   defp transicion_valida?(_, _), do: false
 
   defp aplicar_filtros(lista, filtros) when map_size(filtros) == 0, do: lista
