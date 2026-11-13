@@ -17,6 +17,10 @@ defmodule Emergencias.Recursos.ServidorInventario do
     GenServer.call(__MODULE__, {:descontar, codigo, cantidad})
   end
 
+  def transferir_recurso(codigo, nueva_ubicacion) do
+    GenServer.call(__MODULE__, {:transferir_ubicacion, codigo, nueva_ubicacion})
+  end
+
   # Modificado: transfer_resource ahora maneja origen, destino y cantidad real
   def transferir_recurso(codigo_origen, codigo_destino, cantidad) do
     GenServer.call(__MODULE__, {:transferir, codigo_origen, codigo_destino, cantidad})
@@ -112,6 +116,34 @@ defmodule Emergencias.Recursos.ServidorInventario do
         else
           {:reply, {:error, :stock_insuficiente}, estado}
         end
+    end
+  end
+
+  @impl true
+  def handle_call({:transferir_ubicacion, codigo, nueva_ubicacion}, _from, estado) do
+    case Map.get(estado.recursos, codigo) do
+      nil ->
+        {:reply, {:error, :recurso_no_encontrado}, estado}
+
+      recurso ->
+        ubicacion_anterior = recurso.ubicacion
+        recurso_actualizado = %{recurso | ubicacion: nueva_ubicacion}
+        nuevos_recursos = Map.put(estado.recursos, codigo, recurso_actualizado)
+
+        nuevo_historial =
+          registrar_movimiento(
+            estado.historial,
+            "TRANSFERENCIA",
+            codigo,
+            recurso.cantidad,
+            ubicacion_anterior,
+            nueva_ubicacion
+          )
+
+        nuevo_estado = %{recursos: nuevos_recursos, historial: nuevo_historial}
+        guardar_estado(nuevo_estado)
+
+        {:reply, :ok, nuevo_estado}
     end
   end
 

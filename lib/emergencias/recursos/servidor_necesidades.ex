@@ -66,7 +66,7 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
 
   @impl true
   def handle_call({:asignar, id, cantidad_nueva}, _from, estado) do
-    case Map.get(estado.necesidades, id) do
+    case Map.get(estado, id) do
       nil ->
         {:reply, {:error, :necesidad_no_encontrada}, estado}
 
@@ -74,9 +74,9 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
         # Sumamos lo que ya tenía asignado más lo nuevo
         total_asignado = (necesidad.asignado || 0) + cantidad_nueva
 
-        # Determinamos el nuevo estado: si alcanza o supera la cantidad, está :atendida
+        # Determinamos el nuevo estado: si alcanza o supera la cantidad, está :atendida; si no, :asignada
         nuevo_estado_necesidad =
-          if total_asignado >= necesidad.cantidad, do: :atendida, else: necesidad.estado
+          if total_asignado >= necesidad.cantidad, do: :atendida, else: :asignada
 
         # Actualizamos la estructura
         necesidad_actualizada = %{necesidad |
@@ -84,8 +84,7 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
           estado: nuevo_estado_necesidad
         }
 
-        nuevas_necesidades = Map.put(estado.necesidades, id, necesidad_actualizada)
-        nuevo_estado = %{estado | necesidades: nuevas_necesidades}
+        nuevo_estado = Map.put(estado, id, necesidad_actualizada)
 
         guardar_estado(nuevo_estado)
 
