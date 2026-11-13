@@ -1,14 +1,9 @@
 defmodule Emergencias.Recursos.ServidorNecesidades do
-  @moduledoc """
-  GenServer para gestionar el registro y consulta de las necesidades de los albergues.
-  """
   use GenServer
-  alias Emergencias.Recursos.Necesidad
-  alias Emergencias.Persistencia
+  alias Emergencias.Recursos.{Necesidad, Persistencia}
 
-  # --- API DEL CLIENTE ---
-
-  def start_link(_opts \\ []) do
+  # --- 1. API DEL CLIENTE ---
+  def start_link(_opts) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
@@ -16,34 +11,32 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
     GenServer.call(__MODULE__, {:registrar, necesidad})
   end
 
-  def listar_necesidades() do
-    GenServer.call(__MODULE__, :listar_todas)
+  def cambiar_estado(id, nuevo_estado) do
+    GenServer.call(__MODULE__, {:cambiar_estado, id, nuevo_estado})
   end
 
-  def listar_pendientes() do
-    GenServer.call(__MODULE__, :listar_pendientes)
+  def obtener_necesidad(id) do
+    GenServer.call(__MODULE__, {:obtener, id})
   end
 
-  def satisfacer_necesidad(id) do
-    GenServer.call(__MODULE__, {:satisfacer, id})
+  def listar_necesidades(filtros \\ %{}) do
+    GenServer.call(__MODULE__, {:listar, filtros})
   end
 
-  # --- CALLBACKS DEL SERVIDOR ---
-
+  # --- 2. CALLBACKS DEL SERVIDOR ---
   @impl true
-  def init(_opts) do
-    estado =
-      case Persistencia.cargar(:necesidades) do
-        {:ok, registros} ->
-          registros
-          |> Enum.map(&Necesidad.de_registro/1)
-          |> Enum.into(%{}, fn n -> {n.id, n} end)
-
-        {:error, _motivo} ->
-          %{}
-      end
-
-    {:ok, estado}
+  def init(_estado_inicial) do
+    case Persistencia.cargar(:necesidades) do
+      {:ok, registros} ->
+        estado =
+          Enum.reduce(registros, %{}, fn reg, acc ->
+            necesidad = Necesidad.de_registro(reg)
+            Map.put(acc, necesidad.id, necesidad)
+          end)
+        {:ok, estado}
+      _ ->
+        {:ok, %{}}
+    end
   end
 
   @impl true
@@ -58,43 +51,69 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
   end
 
   @impl true
-  def handle_call(:listar_todas, _from, estado) do
-    {:reply, Map.values(estado), estado}
-  end
-
-  @impl true
-  def handle_call(:listar_pendientes, _from, estado) do
-    # Filtramos la lista de memoria para devolver solo las que tienen estado :pendiente
-    pendientes =
-      estado
-      |> Map.values()
-      |> Enum.filter(fn n -> n.estado == :pendiente end)
-
-    {:reply, pendientes, estado}
-  end
-
-  @impl true
-  def handle_call({:satisfacer, id}, _from, estado) do
+  def handle_call({:obtener, id}, _from, estado) do
     case Map.get(estado, id) do
-      nil ->
-        {:reply, {:error, :necesidad_no_encontrada}, estado}
-
-      necesidad ->
-        actualizada = %{necesidad | estado: :satisfecha}
-        nuevo_estado = Map.put(estado, id, actualizada)
-        guardar_estado(nuevo_estado)
-        {:reply, :ok, nuevo_estado}
+      nil -> {:reply, {:error, :no_encontrada}, estado}
+      necesidad -> {:reply, {:ok, necesidad}, estado}
     end
   end
 
-  # --- FUNCIONES PRIVADAS ---
+  @impl true
+  def handle_call({:cambiar_estado, id, nuevo_estado}, _from, estado) do
+    case Map.get(estado, id) do
+      nil ->
+        {:reply, {:error, :no_encontrada}, estado}
 
-  defp guardar_estado(estado) do
-    registros =
+      necesidad ->
+        if transicion_valida?(necesidad.estado, nuevo_estado) do
+          necesidad_actualizada = %{necesidad | estado: nuevo_estado}
+          nuevo_estado_mapa = Map.put(estado, id, necesidad_actualizada)
+          guardar_estado(nuevo_estado_mapa)
+          {:reply, :ok, nuevo_estado_mapa}
+        else
+          {:reply, {:error, :transicion_invalida}, estado}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:listar, filtros}, _from, estado) do
+    lista =
       estado
       |> Map.values()
-      |> Enum.map(&Necesidad.a_registro/1)
+      |> aplicar_filtros(filtros)
+      |> Enum.sort_by(& &1.prioridad, :asc)
 
+    {:reply, lista, estado}
+  end
+
+  # --- 3. FUNCIONES PRIVADAS ---
+  defp guardar_estado(estado) do
+    registros = estado |> Map.values() |> Enum.map(&Necesidad.a_registro/1)
     Persistencia.guardar(:necesidades, registros)
+  end
+
+  defp transicion_valida?(actual, nuevo) when actual == nuevo, do: true
+  defp transicion_valida?(:pendiente, :evaluada), do: true
+  defp transicion_valida?(:pendiente, :cancelada), do: true
+  defp transicion_valida?(:evaluada, :asignada), do: true
+  defp transicion_valida?(:evaluada, :cancelada), do: true
+  defp transicion_valida?(:asignada, :atendida), do: true
+  defp transicion_valida?(:asignada, :cancelada), do: true
+  defp transicion_valida?(_, _), do: false
+
+  defp aplicar_filtros(lista, filtros) when map_size(filtros) == 0, do: lista
+  defp aplicar_filtros(lista, filtros) do
+    Enum.filter(lista, fn necesidad ->
+      Enum.all?(filtros, fn {clave, valor} ->
+        case clave do
+          :zona -> necesidad.zona == valor
+          :tipo -> necesidad.tipo == valor
+          :prioridad -> necesidad.prioridad == String.to_integer(valor)
+          :estado -> necesidad.estado == valor
+          _ -> true
+        end
+      end)
+    end)
   end
 end
