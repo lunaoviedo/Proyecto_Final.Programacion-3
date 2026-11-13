@@ -35,8 +35,14 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
             Map.put(acc, necesidad.id, necesidad)
           end)
         {:ok, estado}
-      _ ->
+
+      {:error, :archivo_no_existe} ->
+        # Es válido empezar vacío si el archivo aún no se ha creado
         {:ok, %{}}
+
+      {:error, motivo} ->
+        # Fail-fast: detenemos el servidor para no sobrescribir datos valiosos con %{}
+        {:stop, {:persistencia_corrupta, motivo}}
     end
   end
 
