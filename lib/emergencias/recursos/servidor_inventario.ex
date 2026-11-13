@@ -43,6 +43,10 @@ defmodule Emergencias.Recursos.ServidorInventario do
     GenServer.call(__MODULE__, {:asignar, codigo, cantidad_requerida})
   end
 
+  def descontar_recurso(codigo, cantidad_a_descontar) do
+    GenServer.call(__MODULE__, {:descontar, codigo, cantidad_a_descontar})
+  end
+
   # 2. CALLBACKS DEL SERVIDOR
 
   @impl true
@@ -124,6 +128,22 @@ defmodule Emergencias.Recursos.ServidorInventario do
         Persistencia.agregar(:movimientos, movimiento)
 
         {:reply, :ok, nuevo_estado}
+    end
+  end
+
+  @impl true
+  def handle_call({:descontar, codigo, cantidad_a_descontar}, _from, estado) do
+    case Map.get(estado, codigo) do
+      nil -> {:reply, {:error, :recurso_no_encontrado}, estado}
+      recurso ->
+        if recurso.cantidad >= cantidad_a_descontar do
+          recurso_actualizado = %{recurso | cantidad: recurso.cantidad - cantidad_a_descontar}
+          nuevo_estado = Map.put(estado, codigo, recurso_actualizado)
+          guardar_estado(nuevo_estado)
+          {:reply, :ok, nuevo_estado}
+        else
+          {:reply, {:error, :stock_insuficiente}, estado}
+        end
     end
   end
 
