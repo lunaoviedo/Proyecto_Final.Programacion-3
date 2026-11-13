@@ -40,7 +40,7 @@ defmodule Emergencias.Informes do
     %{
       zonas: leer(fn -> ServidorZonas.listar_zonas() end),
       albergues: leer(fn -> ServidorAlbergues.obtener_albergues() end),
-      recursos: leer(fn -> ServidorInventario.obtener_inventario() end),
+      recursos: leer(fn -> ServidorInventario.listar_recursos() end),
       necesidades: leer(fn -> ServidorNecesidades.listar_necesidades() end),
       personas: leer(fn -> ServidorFamiliares.consultar_personas([]) end),
       mensajes: leer(fn -> ServidorFamiliares.consultar_mensajes([]) end),

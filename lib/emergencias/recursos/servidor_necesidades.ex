@@ -1,6 +1,7 @@
 defmodule Emergencias.Recursos.ServidorNecesidades do
   use GenServer
-  alias Emergencias.Recursos.{Necesidad, Persistencia}
+  alias Emergencias.Recursos.Necesidad
+  alias Emergencias.Persistencia
 
   # --- 1. API DEL CLIENTE ---
   def start_link(_opts) do
