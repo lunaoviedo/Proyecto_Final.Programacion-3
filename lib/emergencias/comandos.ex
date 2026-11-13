@@ -57,14 +57,14 @@ defmodule Emergencias.Comandos do
     register_shelter codigo nombre zona capacidad
     register_entry codigo documento      register_exit codigo documento
     check_shelter codigo
-    register_need id codigo_albergue recurso cantidad
+    register_need id tipo descripcion cantidad zona prioridad responsable
     list_needs      pending_needs
 
   Personas, mensajes y mascotas
     report_person nombre documento edad zona [estado]
-    find_person documento      find_person [nombre=..] [zona=..] [estado=..]
+    find_person [nombre=..] [documento=..] [zona=..] [estado=..]
     update_person id estado      person_history id
-    send_family_message documento contenido      list_family_messages documento
+    send_family_message destinatario contenido      list_family_messages
     report_pet tipo especie color tamano zona contacto [nombre|-] [rasgos|-]
     list_pets [especie=..] [zona=..] [estado=..] [tipo=..]
     match_pets      link_pets id_a id_b      confirm_match id_a id_b      discard_match id
@@ -77,11 +77,33 @@ defmodule Emergencias.Comandos do
   Interpreta una línea de comandos de texto y la despacha según la sesión activa y los argumentos provistos.
   """
   def ejecutar(sesion, linea) when is_binary(linea) do
+    interpretar(sesion, linea)
+  rescue
+    excepcion -> {:error, "Error interno: " <> describir_excepcion(excepcion)}
+  catch
+    :exit, motivo -> {:error, "Error interno: " <> describir_salida(motivo)}
+  end
+
+  defp interpretar(sesion, linea) do
     case OptionParser.split(linea) do
       [] -> {:error, "Comando vacío."}
       [comando | args] -> despachar(sesion, comando, args)
     end
   end
+
+  defp describir_excepcion(excepcion) do
+    [primera_linea | _] = String.split(Exception.message(excepcion), "\n")
+    "#{inspect(excepcion.__struct__)}: #{primera_linea}"
+  end
+
+  defp describir_salida({{motivo, pila}, _llamada}) when is_list(pila) do
+    excepcion = Exception.normalize(:error, motivo, pila)
+    "un servicio falló (" <> describir_excepcion(excepcion) <> ")."
+  end
+
+  defp describir_salida({:timeout, _llamada}), do: "un servicio tardó demasiado en responder."
+  defp describir_salida({:noproc, _llamada}), do: "un servicio no está disponible."
+  defp describir_salida(otro), do: "salida inesperada: #{inspect(otro)}."
 
   defp despachar(nil, "connect", [usuario, clave, tipo, zona]) do
     case ServidorSesiones.conectar(usuario, clave, tipo, zona) do
