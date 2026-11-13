@@ -62,9 +62,9 @@ defmodule Emergencias.Comandos do
 
   Personas, mensajes y mascotas
     report_person nombre documento edad zona [estado]
-    find_person [nombre=..] [documento=..] [zona=..] [estado=..]
+    find_person documento      find_person [nombre=..] [zona=..] [estado=..]
     update_person id estado      person_history id
-    send_family_message destinatario contenido      list_family_messages
+    send_family_message documento contenido      list_family_messages documento
     report_pet tipo especie color tamano zona contacto [nombre|-] [rasgos|-]
     list_pets [especie=..] [zona=..] [estado=..] [tipo=..]
     match_pets      link_pets id_a id_b      confirm_match id_a id_b      discard_match id
