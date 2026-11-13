@@ -1,61 +1,51 @@
 defmodule Emergencias.Recursos.Necesidad do
-  @moduledoc """
-  Estructura inmutable que representa una solicitud de recursos.
-  """
+  @type estado :: :pendiente | :asignada | :en_atencion | :atendida | :cancelada
 
-  @enforce_keys [:id, :tipo, :descripcion, :cantidad, :zona, :prioridad, :responsable]
-  defstruct [
-    :id,
-    :tipo,
-    :descripcion,
-    :cantidad,
-    :zona,
-    :prioridad,
-    :responsable,
-    estado: :pendiente
-  ]
+  defstruct [:id, :tipo, :descripcion, :cantidad, :asignado, :zona, :prioridad, :responsable, :estado]
 
-  @type t :: %__MODULE__{
-          id: String.t(),
-          tipo: String.t(),
-          descripcion: String.t(),
-          cantidad: pos_integer(),
-          zona: String.t(),
-          prioridad: integer(), # Por ejemplo: 1 (Alta), 2 (Media), 3 (Baja)
-          responsable: String.t(),
-          estado: :pendiente | :evaluada | :asignada | :atendida | :cancelada
-        }
+  def de_registro(mapa) do
+    estado_str = mapa["estado"] || "pendiente"
 
-  @doc """
-  Convierte la estructura a un mapa de cadenas para guardar en el archivo JSON.
-  """
+    # Reemplazo de String.to_atom por pattern matching explícito (Punto 8)
+    estado_atom =
+      case estado_str do
+        "pendiente" -> {:ok, :pendiente}
+        "asignada" -> {:ok, :asignada}
+        "en_atencion" -> {:ok, :en_atencion}
+        "atendida" -> {:ok, :atendida}
+        "cancelada" -> {:ok, :cancelada}
+        _ -> {:error, "Estado desconocido: #{estado_str}"}
+      end
+
+    case estado_atom do
+      {:ok, estado_valido} ->
+        {:ok, %__MODULE__{
+          id: mapa["id"],
+          tipo: mapa["tipo"],
+          descripcion: mapa["descripcion"],
+          cantidad: mapa["cantidad"],
+          asignado: mapa["asignado"] || 0, # Agregado para el Punto 3
+          zona: mapa["zona"],
+          prioridad: mapa["prioridad"],
+          responsable: mapa["responsable"],
+          estado: estado_valido
+        }}
+      {:error, motivo} ->
+        {:error, motivo}
+    end
+  end
+
   def a_registro(%__MODULE__{} = necesidad) do
     %{
       "id" => necesidad.id,
       "tipo" => necesidad.tipo,
       "descripcion" => necesidad.descripcion,
       "cantidad" => necesidad.cantidad,
+      "asignado" => necesidad.asignado,
       "zona" => necesidad.zona,
       "prioridad" => necesidad.prioridad,
       "responsable" => necesidad.responsable,
-      "estado" => Atom.to_string(necesidad.estado)
-    }
-  end
-
-  @doc """
-  Reconstruye la estructura a partir del mapa leído del disco.
-  """
-  def de_registro(mapa) do
-    %__MODULE__{
-      id: mapa["id"],
-      tipo: mapa["tipo"],
-      descripcion: mapa["descripcion"],
-      cantidad: mapa["cantidad"],
-      zona: mapa["zona"],
-      prioridad: mapa["prioridad"],
-      responsable: mapa["responsable"],
-      # Usamos String.to_atom para soportar los 5 estados nuevos definidos
-      estado: String.to_atom(mapa["estado"] || "pendiente")
+      "estado" => to_string(necesidad.estado)
     }
   end
 end

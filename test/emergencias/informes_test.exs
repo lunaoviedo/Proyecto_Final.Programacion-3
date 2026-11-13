@@ -68,33 +68,36 @@ defmodule Emergencias.InformesTest do
           ubicacion: "A2"
         }
       ],
-      necesidades: [
+necesidades: [
         %Necesidad{
           id: "N1",
+          zona: "Z1",
           tipo: "agua",
           descripcion: "Agua potable",
           cantidad: 30,
-          zona: "Z1",
+          asignado: 0,
           prioridad: 1,
           responsable: "laura",
           estado: :pendiente
         },
         %Necesidad{
           id: "N2",
+          zona: "Z1",
           tipo: "agua",
           descripcion: "Agua para cocinar",
           cantidad: 25,
-          zona: "Z1",
+          asignado: 0,
           prioridad: 2,
           responsable: "laura",
           estado: :atendida
         },
         %Necesidad{
           id: "N3",
+          zona: "Z2",
           tipo: "mantas",
           descripcion: "Mantas térmicas",
           cantidad: 10,
-          zona: "Z2",
+          asignado: 0,
           prioridad: 3,
           responsable: "pedro",
           estado: :pendiente
