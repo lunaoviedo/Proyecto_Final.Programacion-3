@@ -7,6 +7,7 @@ defmodule Emergencias.Recursos.ServidorAlbergues do
   use GenServer
   alias Emergencias.Recursos.Albergue
   alias Emergencias.Persistencia # Importamos el módulo de guardado
+  alias Emergencias.Zonas.ServidorZonas # Para validar si la zona existe
 
   # 1. API DEL CLIENTE
 
@@ -21,6 +22,26 @@ defmodule Emergencias.Recursos.ServidorAlbergues do
 
   def obtener_albergues() do
     GenServer.call(__MODULE__, :obtener_todos)
+  end
+
+  @doc """
+  Retorna una lista de los albergues ordenados por su nivel de ocupación
+  (de mayor a menor porcentaje).
+  """
+  def albergues_mayor_ocupacion() do
+    obtener_albergues()
+    |> Enum.map(fn albergue ->
+      # Calculamos el porcentaje, previniendo división por cero
+      porcentaje =
+        if albergue.capacidad_maxima > 0 do
+          (length(albergue.ocupacion) / albergue.capacidad_maxima) * 100
+        else
+          0.0
+        end
+      %{albergue: albergue, porcentaje: porcentaje}
+    end)
+    |> Enum.sort_by(&(&1.porcentaje), :desc)
+    |> Enum.map(&(&1.albergue))
   end
 
   @doc """
@@ -60,9 +81,16 @@ defmodule Emergencias.Recursos.ServidorAlbergues do
     if Map.has_key?(estado, albergue.codigo) do
       {:reply, {:error, :albergue_ya_existe}, estado}
     else
-      nuevo_estado = Map.put(estado, albergue.codigo, albergue)
-      guardar_estado(nuevo_estado) # Guardamos en disco
-      {:reply, :ok, nuevo_estado}
+      # Verificamos que la zona exista en el catálogo de zonas antes de registrar
+      case ServidorZonas.obtener_zona(albergue.zona) do
+        {:ok, _zona} ->
+          nuevo_estado = Map.put(estado, albergue.codigo, albergue)
+          guardar_estado(nuevo_estado) # Guardamos en disco
+          {:reply, :ok, nuevo_estado}
+
+        {:error, _motivo} ->
+          {:reply, {:error, :zona_no_existe}, estado}
+      end
     end
   end
 
