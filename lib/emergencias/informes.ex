@@ -4,8 +4,8 @@ defmodule Emergencias.Informes do
 
   Se usa en dos comandos:
 
-    * `summary`: estado global (recursos restantes, necesidades pendientes,
-      personas localizadas, mensajes y reportes de mascotas).
+    * `summary`: estado global (albergues más ocupados, recursos restantes,
+      necesidades pendientes, personas localizadas, mensajes y reportes de mascotas).
     * `zone_status`: además de la jerarquía de la zona, los albergues, necesidades,
       recursos, personas y mascotas asociados a ella.
 
@@ -19,6 +19,8 @@ defmodule Emergencias.Informes do
   alias Emergencias.Mascotas.ServidorMascotas
   alias Emergencias.Recursos.{ServidorAlbergues, ServidorInventario, ServidorNecesidades}
   alias Emergencias.Zonas.{ArbolZonas, ServidorZonas}
+
+  @max_albergues_ocupados 3
 
   @type fuente :: [struct()] | :no_disponible
 
@@ -91,15 +93,26 @@ defmodule Emergencias.Informes do
     %{
       total: length(albergues),
       capacidad: albergues |> Enum.map(& &1.capacidad_maxima) |> Enum.sum(),
-      ocupadas: albergues |> Enum.map(&length(&1.ocupacion)) |> Enum.sum()
+      ocupadas: albergues |> Enum.map(&length(&1.ocupacion)) |> Enum.sum(),
+      mas_ocupados: albergues_mas_ocupados(albergues)
     }
   end
+
+  defp albergues_mas_ocupados(albergues) do
+    albergues
+    |> Enum.filter(&(&1.ocupacion != []))
+    |> Enum.sort_by(&porcentaje_ocupacion/1, :desc)
+    |> Enum.take(@max_albergues_ocupados)
+  end
+
+  defp porcentaje_ocupacion(%{capacidad_maxima: capacidad}) when capacidad <= 0, do: 0.0
+  defp porcentaje_ocupacion(a), do: length(a.ocupacion) / a.capacidad_maxima * 100
 
   defp estadisticas_necesidades(necesidades) do
     %{
       total: length(necesidades),
       pendientes: Enum.count(necesidades, &(&1.estado == :pendiente)),
-      satisfechas: Enum.count(necesidades, &(&1.estado == :satisfecha))
+      atendidas: Enum.count(necesidades, &(&1.estado == :atendida))
     }
   end
 
@@ -149,8 +162,19 @@ defmodule Emergencias.Informes do
 
   defp linea_albergues(:no_disponible), do: ["Albergues: no disponible"]
 
-  defp linea_albergues(%{total: total, capacidad: capacidad, ocupadas: ocupadas}),
-    do: ["Albergues: #{total} (ocupación #{ocupadas}/#{capacidad})"]
+  defp linea_albergues(%{total: t, capacidad: c, ocupadas: o, mas_ocupados: mas_ocupados}) do
+    ["Albergues: #{t} (ocupación #{o}/#{c})" | lineas_mas_ocupados(mas_ocupados)]
+  end
+
+  defp lineas_mas_ocupados([]), do: []
+
+  defp lineas_mas_ocupados(albergues),
+    do: ["Albergues más ocupados:" | Enum.map(albergues, &formato_ocupado/1)]
+
+  defp formato_ocupado(a) do
+    porcentaje = :erlang.float_to_binary(porcentaje_ocupacion(a) * 1.0, decimals: 1)
+    "  - #{a.nombre} (#{a.codigo}): #{length(a.ocupacion)}/#{a.capacidad_maxima} (#{porcentaje}%)"
+  end
 
   defp lineas_recursos(:no_disponible), do: ["Recursos restantes: no disponible"]
   defp lineas_recursos([]), do: ["Recursos restantes: ninguno registrado"]
@@ -161,8 +185,8 @@ defmodule Emergencias.Informes do
 
   defp linea_necesidades(:no_disponible), do: ["Necesidades: no disponible"]
 
-  defp linea_necesidades(%{total: total, pendientes: pendientes, satisfechas: satisfechas}),
-    do: ["Necesidades: #{pendientes} pendientes, #{satisfechas} satisfechas (#{total} en total)"]
+  defp linea_necesidades(%{total: total, pendientes: pendientes, atendidas: atendidas}),
+    do: ["Necesidades: #{pendientes} pendientes, #{atendidas} atendidas (#{total} en total)"]
 
   defp lineas_personas(:no_disponible), do: ["Personas: no disponible"]
 
@@ -198,9 +222,6 @@ defmodule Emergencias.Informes do
   end
   @doc """
   Filtra, de los datos leídos, lo que pertenece a la zona `codigo`.
-
-  Si no se pudo leer la lista de albergues, las necesidades de la zona quedan
-  como `:no_disponible` (se asocian a través de los albergues).
   """
   @spec asociados_a_zona(String.t(), datos()) :: map()
   def asociados_a_zona(codigo, datos) do
@@ -208,16 +229,16 @@ defmodule Emergencias.Informes do
 
     codigos_albergue =
       case albergues do
-        :no_disponible -> :no_disponible
+        :no_disponible -> []
         lista -> Enum.map(lista, & &1.codigo)
       end
 
     %{
       albergues: albergues,
-      necesidades: filtrar_por_albergue(datos.necesidades, codigos_albergue),
+      necesidades: filtrar(datos.necesidades, &(&1.zona == codigo)),
       recursos:
         filtrar(datos.recursos, fn r ->
-          r.ubicacion == codigo or r.ubicacion in lista_o_vacia(codigos_albergue)
+          r.ubicacion == codigo or r.ubicacion in codigos_albergue
         end),
       personas: filtrar(datos.personas, &(&1.zona == codigo)),
       mascotas: filtrar(datos.mascotas, &(&1.zona == codigo))
@@ -226,14 +247,6 @@ defmodule Emergencias.Informes do
 
   defp filtrar(:no_disponible, _funcion), do: :no_disponible
   defp filtrar(lista, funcion), do: Enum.filter(lista, funcion)
-
-  defp filtrar_por_albergue(_necesidades, :no_disponible), do: :no_disponible
-
-  defp filtrar_por_albergue(necesidades, codigos),
-    do: filtrar(necesidades, &(&1.codigo_albergue in codigos))
-
-  defp lista_o_vacia(:no_disponible), do: []
-  defp lista_o_vacia(lista), do: lista
 
   def formatear_zona(a) do
     [
@@ -261,8 +274,8 @@ defmodule Emergencias.Informes do
 
   defp formato_necesidad(n),
     do:
-      "  - [#{n.id}] #{n.cantidad} de #{n.recurso_requerido} para el albergue " <>
-        "#{n.codigo_albergue} (#{n.estado})"
+      "  - [#{n.id}] #{n.cantidad} de #{n.tipo} (#{n.descripcion}), " <>
+        "prioridad #{n.prioridad} (#{n.estado})"
 
   defp formato_persona(p), do: "  - #{p.id} #{p.nombre} (#{p.estado})"
 

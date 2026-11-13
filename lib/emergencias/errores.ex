@@ -2,14 +2,6 @@ defmodule Emergencias.Errores do
   @moduledoc """
   Traduce los motivos de error del sistema a mensajes legibles para el usuario.
 
-  Reúne en un solo lugar los errores de todos los módulos (usuarios, zonas,
-  recursos, albergues, necesidades, familiares y mascotas), de modo que
-  `Emergencias.Comandos` y los módulos de comandos de cada integrante muestren
-  mensajes consistentes en vez de átomos como `:inventario_insuficiente`.
-
-  Los motivos desconocidos no lanzan excepciones: se muestran como
-  `"Error: ..."` para no ocultar información.
-
   ## Información del proyecto
   - Autores: Simón López E., Luna Sofía Oviedo Ríos, David Alejandro Henao Jaramillo
   - Fecha: Noviembre del 2026
@@ -28,8 +20,6 @@ defmodule Emergencias.Errores do
       "Cambio de estado no permitido: reportada -> reunificada."
 
   """
-  @spec mensaje(term()) :: String.t()
-
   def mensaje(:credenciales_invalidas), do: "Usuario o contraseña incorrectos."
   def mensaje(:usuario_invalido), do: "Usuario inválido (3 a 20 letras, números o guion bajo)."
   def mensaje(:clave_invalida), do: "La contraseña debe tener al menos 4 caracteres."
@@ -57,6 +47,7 @@ defmodule Emergencias.Errores do
   def mensaje(:recurso_ya_existe), do: "Ya existe un recurso con ese código."
   def mensaje(:recurso_no_encontrado), do: "El recurso no existe en el inventario."
   def mensaje(:inventario_insuficiente), do: "No hay inventario suficiente para esa cantidad."
+  def mensaje(:stock_insuficiente), do: "No hay inventario suficiente para esa cantidad."
   def mensaje(:albergue_ya_existe), do: "Ya existe un albergue con ese código."
   def mensaje(:albergue_no_encontrado), do: "El albergue no existe."
   def mensaje(:capacidad_excedida), do: "El albergue no tiene cupos disponibles."
