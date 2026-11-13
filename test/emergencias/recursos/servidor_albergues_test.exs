@@ -5,6 +5,8 @@ defmodule Emergencias.Recursos.ServidorAlberguesTest do
   # Esto se ejecuta antes de cada 'test' para darnos un código único
   setup do
     codigo_unico = "TEST-ALB-" <> Integer.to_string(:rand.uniform(100_000))
+    Emergencias.Zonas.ServidorZonas.registrar_zona("Zona Norte", "Zona Norte", :medio)
+    Emergencias.Zonas.ServidorZonas.registrar_zona("Zona Sur", "Zona Sur", :medio)
     {:ok, codigo: codigo_unico}
   end
 

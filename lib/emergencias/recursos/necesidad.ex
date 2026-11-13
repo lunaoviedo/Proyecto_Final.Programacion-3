@@ -1,10 +1,25 @@
 defmodule Emergencias.Recursos.Necesidad do
   @type estado :: :pendiente | :asignada | :en_atencion | :atendida | :cancelada
 
-  defstruct [:id, :tipo, :descripcion, :cantidad, :asignado, :zona, :prioridad, :responsable, :estado]
+  defstruct [
+    :id,
+    :tipo,
+    :descripcion,
+    :cantidad,
+    :zona,
+    :prioridad,
+    :responsable,
+    asignado: 0,
+    estado: :pendiente
+  ]
 
   def de_registro(mapa) do
-    estado_str = mapa["estado"] || "pendiente"
+    estado_str =
+      case mapa["estado"] do
+        nil -> "pendiente"
+        "" -> "pendiente"
+        val -> to_string(val)
+      end
 
     # Reemplazo de String.to_atom por pattern matching explícito (Punto 8)
     estado_atom =
@@ -13,6 +28,7 @@ defmodule Emergencias.Recursos.Necesidad do
         "asignada" -> {:ok, :asignada}
         "en_atencion" -> {:ok, :en_atencion}
         "atendida" -> {:ok, :atendida}
+        "satisfecha" -> {:ok, :atendida}
         "cancelada" -> {:ok, :cancelada}
         _ -> {:error, "Estado desconocido: #{estado_str}"}
       end
@@ -41,11 +57,11 @@ defmodule Emergencias.Recursos.Necesidad do
       "tipo" => necesidad.tipo,
       "descripcion" => necesidad.descripcion,
       "cantidad" => necesidad.cantidad,
-      "asignado" => necesidad.asignado,
+      "asignado" => necesidad.asignado || 0,
       "zona" => necesidad.zona,
       "prioridad" => necesidad.prioridad,
       "responsable" => necesidad.responsable,
-      "estado" => to_string(necesidad.estado)
+      "estado" => to_string(necesidad.estado || :pendiente)
     }
   end
 end

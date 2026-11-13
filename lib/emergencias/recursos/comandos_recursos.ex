@@ -130,9 +130,11 @@ defmodule Emergencias.Recursos.ComandosRecursos do
             tipo: tipo,
             descripcion: descripcion,
             cantidad: cantidad,
+            asignado: 0,
             zona: zona,
             prioridad: prioridad,
-            responsable: responsable
+            responsable: responsable,
+            estado: :pendiente
           }
 
           case ServidorNecesidades.registrar_necesidad(necesidad) do
@@ -145,6 +147,10 @@ defmodule Emergencias.Recursos.ComandosRecursos do
           {:error, "La cantidad y la prioridad deben ser números enteros."}
       end
     end)
+  end
+
+  def ejecutar(sesion, "register_need", [id, zona, tipo, cantidad_str]) do
+    ejecutar(sesion, "register_need", [id, tipo, tipo, cantidad_str, zona, "1", to_string(sesion)])
   end
 
   def ejecutar(_sesion, "register_need", _args), do: uso("register_need")
@@ -187,8 +193,7 @@ defmodule Emergencias.Recursos.ComandosRecursos do
               else
                 case ServidorInventario.descontar_recurso(codigo_recurso, cantidad) do
                   :ok ->
-                    if necesidad.estado == :pendiente, do: ServidorNecesidades.cambiar_estado(id_necesidad, :evaluada)
-                    ServidorNecesidades.cambiar_estado(id_necesidad, :asignada)
+                    ServidorNecesidades.asignar_a_necesidad(id_necesidad, cantidad)
                     {:ok, "Se asignaron #{cantidad} unidades del recurso #{codigo_recurso} a la necesidad #{id_necesidad}.", sesion}
                   {:error, :stock_insuficiente} ->
                     {:error, "Stock insuficiente en el inventario para el recurso #{codigo_recurso}."}
