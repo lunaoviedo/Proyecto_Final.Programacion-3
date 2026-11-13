@@ -7,6 +7,7 @@ defmodule Emergencias.ErroresTest do
 
   test "traduce los errores de recursos, albergues y necesidades" do
     assert Errores.mensaje(:inventario_insuficiente) =~ "inventario"
+    assert Errores.mensaje(:stock_insuficiente) =~ "inventario"
     assert Errores.mensaje(:capacidad_excedida) =~ "cupos"
     assert Errores.mensaje(:albergue_no_encontrado) == "El albergue no existe."
     assert Errores.mensaje(:necesidad_ya_existe) =~ "necesidad"
@@ -31,6 +32,7 @@ defmodule Emergencias.ErroresTest do
       :codigo_existente,
       :recurso_ya_existe,
       :recurso_no_encontrado,
+      :stock_insuficiente,
       :albergue_ya_existe,
       :persona_ya_ingresada,
       :necesidad_no_encontrada,

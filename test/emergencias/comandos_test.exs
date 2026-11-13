@@ -1,6 +1,8 @@
 defmodule Emergencias.ComandosTest do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
   alias Emergencias.Comandos
 
   defp unico(prefijo) do
@@ -55,6 +57,49 @@ defmodule Emergencias.ComandosTest do
     assert mensaje =~ "incorrectos"
 
     assert {:error, "Uso: connect" <> _} = Comandos.ejecutar(nil, "connect solo_usuario")
+  end
+
+  describe "una falla interna no tumba la consola" do
+    setup do
+      usuario = unico("r")
+      {:ok, _, _} = Comandos.ejecutar(nil, "connect #{usuario} 1234 ciudadano centro")
+      on_exit(fn -> Comandos.ejecutar(usuario, "disconnect") end)
+      %{usuario: usuario}
+    end
+
+    test "una excepción en el comando se devuelve como error", %{usuario: usuario} do
+      assert {:error, "Error interno: " <> detalle} =
+               Comandos.ejecutar(usuario, "list_needs estado:no_existe_#{unico("e")}")
+
+      assert detalle =~ "ArgumentError"
+      assert {:ok, _, ^usuario} = Comandos.ejecutar(usuario, "list_zones")
+    end
+
+    test "la caída de un servidor se devuelve como error", %{usuario: usuario} do
+      {:ok, _, _} =
+        Comandos.ejecutar(
+          usuario,
+          ~s(register_need #{unico("n")} agua "Agua potable" 10 centro 1 #{usuario})
+        )
+
+      capture_log(fn ->
+        assert {:error, "Error interno: " <> detalle} =
+                 Comandos.ejecutar(usuario, "list_needs prioridad:abc")
+
+        assert detalle =~ "un servicio falló"
+      end)
+
+      esperar_servidor(Emergencias.Recursos.ServidorNecesidades)
+      assert {:ok, _, ^usuario} = Comandos.ejecutar(usuario, "list_needs")
+    end
+  end
+
+  defp esperar_servidor(nombre, intentos \\ 50) do
+    cond do
+      is_pid(Process.whereis(nombre)) -> :ok
+      intentos == 0 -> flunk("#{inspect(nombre)} no se reinició")
+      true -> Process.sleep(20) && esperar_servidor(nombre, intentos - 1)
+    end
   end
 
   test "comando desconocido" do
