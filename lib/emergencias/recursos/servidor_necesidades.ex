@@ -12,6 +12,10 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
     GenServer.call(__MODULE__, {:registrar, necesidad})
   end
 
+  def asignar_a_necesidad(id, cantidad) do
+    GenServer.call(__MODULE__, {:asignar, id, cantidad})
+  end
+
   def cambiar_estado(id, nuevo_estado) do
     GenServer.call(__MODULE__, {:cambiar_estado, id, nuevo_estado})
   end
@@ -57,6 +61,35 @@ defmodule Emergencias.Recursos.ServidorNecesidades do
       nuevo_estado = Map.put(estado, necesidad.id, necesidad)
       guardar_estado(nuevo_estado)
       {:reply, :ok, nuevo_estado}
+    end
+  end
+
+  @impl true
+  def handle_call({:asignar, id, cantidad_nueva}, _from, estado) do
+    case Map.get(estado.necesidades, id) do
+      nil ->
+        {:reply, {:error, :necesidad_no_encontrada}, estado}
+
+      necesidad ->
+        # Sumamos lo que ya tenía asignado más lo nuevo
+        total_asignado = (necesidad.asignado || 0) + cantidad_nueva
+
+        # Determinamos el nuevo estado: si alcanza o supera la cantidad, está :atendida
+        nuevo_estado_necesidad =
+          if total_asignado >= necesidad.cantidad, do: :atendida, else: necesidad.estado
+
+        # Actualizamos la estructura
+        necesidad_actualizada = %{necesidad |
+          asignado: total_asignado,
+          estado: nuevo_estado_necesidad
+        }
+
+        nuevas_necesidades = Map.put(estado.necesidades, id, necesidad_actualizada)
+        nuevo_estado = %{estado | necesidades: nuevas_necesidades}
+
+        guardar_estado(nuevo_estado)
+
+        {:reply, :ok, nuevo_estado}
     end
   end
 
