@@ -37,17 +37,37 @@ defmodule Emergencias.Recursos.ServidorInventario do
   # --- 2. CALLBACKS DEL SERVIDOR ---
   @impl true
   def init(_opts) do
-    recursos = case Persistencia.cargar(:recursos) do
-      {:ok, regs} -> Enum.reduce(regs, %{}, fn r, acc -> Map.put(acc, r["codigo"], Recurso.de_registro(r)) end)
-      _ -> %{}
-    end
+    # 1. Intentamos cargar los recursos
+    recursos_resultado =
+      case Persistencia.cargar(:recursos) do
+        {:ok, regs} ->
+          estado_recursos = Enum.reduce(regs, %{}, fn r, acc ->
+            Map.put(acc, r["codigo"], Recurso.de_registro(r))
+          end)
+          {:ok, estado_recursos}
+        {:error, :archivo_no_existe} ->
+          {:ok, %{}} # Si no existe, empezamos en blanco (es válido al inicio)
+        {:error, motivo} ->
+          {:error, {:recursos, motivo}} # Archivo corrupto: fallamos
+      end
 
-    historial = case Persistencia.cargar(:historial_inventario) do
-      {:ok, hist} -> hist
-      _ -> []
-    end
+    # 2. Intentamos cargar el historial
+    historial_resultado =
+      case Persistencia.cargar(:historial_inventario) do
+        {:ok, hist} -> {:ok, hist}
+        {:error, :archivo_no_existe} -> {:ok, []}
+        {:error, motivo} -> {:error, {:historial, motivo}}
+      end
 
-    {:ok, %{recursos: recursos, historial: historial}}
+    # 3. Evaluamos ambos resultados
+    with {:ok, recursos} <- recursos_resultado,
+         {:ok, historial} <- historial_resultado do
+      {:ok, %{recursos: recursos, historial: historial}}
+    else
+      {:error, motivo} ->
+        # Fail-fast: detenemos el servidor para no sobrescribir archivos corruptos
+        {:stop, {:persistencia_corrupta, motivo}}
+    end
   end
 
   @impl true
