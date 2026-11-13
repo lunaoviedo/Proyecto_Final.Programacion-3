@@ -2,6 +2,7 @@ defmodule Emergencias.Recursos.ServidorInventario do
   use GenServer
   alias Emergencias.Recursos.Recurso
   alias Emergencias.Persistencia
+  require Logger
 
   # --- 1. API DEL CLIENTE ---
   def start_link(_opts) do
@@ -92,10 +93,17 @@ defmodule Emergencias.Recursos.ServidorInventario do
       nil -> {:reply, {:error, :recurso_no_encontrado}, estado}
       recurso ->
         if recurso.cantidad >= cantidad do
-          recurso_actualizado = %{recurso | cantidad: recurso.cantidad - cantidad}
+          cantidad_restante = recurso.cantidad - cantidad
+          recurso_actualizado = %{recurso | cantidad: cantidad_restante}
           nuevos_recursos = Map.put(estado.recursos, codigo, recurso_actualizado)
           # Registramos la SALIDA
           nuevo_historial = registrar_movimiento(estado.historial, "SALIDA", codigo, cantidad, recurso.ubicacion, "Asignación a Necesidad")
+
+          if cantidad_restante < 10 do
+            IO.puts("\n\e[31m[ALERTA COORDINADOR] ¡ATENCIÓN! El recurso #{codigo} ha bajado a nivel crítico: #{cantidad_restante} restantes.\e[0m\n")
+            Logger.warning("Recurso crítico: #{codigo} bajó a #{cantidad_restante}")
+          end
+          # ---------------------------------------------
 
           nuevo_estado = %{recursos: nuevos_recursos, historial: nuevo_historial}
           guardar_estado(nuevo_estado)
