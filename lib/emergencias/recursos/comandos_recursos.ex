@@ -262,8 +262,6 @@ defmodule Emergencias.Recursos.ComandosRecursos do
     end)
   end
 
-  def ejecutar(_sesion, "list_resources", _args), do: uso("list_resources")
-
   def ejecutar(sesion, "critical_resources", args) do
     con_permiso(sesion, :ver_movimientos, fn ->
       umbral = case args do
@@ -287,8 +285,6 @@ defmodule Emergencias.Recursos.ComandosRecursos do
       end
     end)
   end
-
-  def ejecutar(_sesion, "critical_resources", _args), do: uso("critical_resources")
 
   def ejecutar(sesion, "transfer_resource", [codigo_origen, codigo_destino, cantidad_str]) do
     con_permiso(sesion, :transferir_recursos, fn ->

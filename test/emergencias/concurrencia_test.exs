@@ -52,4 +52,44 @@ defmodule Emergencias.ConcurrenciaTest do
     assert length(guardada.sectores) == 50
     assert ArbolZonas.total_afectados(guardada) == Enum.sum(1..50)
   end
+
+  test "conflicto concurrente en inventario: 30 y 25 litros sobre 50, solo uno se acepta" do
+    codigo = unico("AGUA")
+
+    recurso = %Emergencias.Recursos.Recurso{
+      codigo: codigo,
+      nombre: "Agua purificada",
+      categoria: "hidratacion",
+      cantidad: 50,
+      unidad: "litros",
+      ubicacion: "zona_centro"
+    }
+
+    Emergencias.Recursos.ServidorInventario.registrar_recurso(recurso)
+
+    # Proceso 1: Intenta descontar 30 litros
+    tarea1 = Task.async(fn ->
+      Emergencias.Recursos.ServidorInventario.descontar_recurso(codigo, 30)
+    end)
+
+    # Proceso 2: Intenta descontar 25 litros
+    tarea2 = Task.async(fn ->
+      Emergencias.Recursos.ServidorInventario.descontar_recurso(codigo, 25)
+    end)
+
+    resultado1 = Task.await(tarea1)
+    resultado2 = Task.await(tarea2)
+    resultados = [resultado1, resultado2]
+
+    # Verificamos que uno pase y el otro falle por falta de stock
+    assert :ok in resultados
+    assert {:error, :stock_insuficiente} in resultados
+
+    # Verificamos que el inventario no quede en negativo
+    [recurso_final] =
+      Emergencias.Recursos.ServidorInventario.listar_recursos()
+      |> Enum.filter(&(&1.codigo == codigo))
+
+    assert recurso_final.cantidad in [20, 25]
+  end
 end
